@@ -10,9 +10,9 @@
 # App Preview
 
 <p align="center">
-  <img src="" width="250">
-  <img src="screenshots/chat.png" width="250">
-  <img src="screenshots/events.png" width="250">
+  <img src="screenshots/home.png" width="250"/>
+  <img src="screenshots/events.png" width="250"/>
+  <img src="screenshots/chat.png" width="250"/>
 </p>
 
 <p align="center">
