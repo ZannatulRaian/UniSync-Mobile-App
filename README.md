@@ -11,8 +11,8 @@
 
 <p align="center">
   <img src="screenshots/home.jpeg" width="250"/>
-  <img src="screenshots/events.jpeg" width="250"/>
   <img src="screenshots/chat.jpeg" width="250"/>
+  <img src="screenshots/events.jpeg" width="250"/>
 </p>
 
 <p align="center">
