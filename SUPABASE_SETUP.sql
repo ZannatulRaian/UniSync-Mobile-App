@@ -2,6 +2,7 @@
 --  UniSync — Complete Secure Database Setup
 -- ================================================================
 
+
 -- ── TABLES ──────────────────────────────────────────────────────────
 
 create table if not exists users (
@@ -257,5 +258,25 @@ create policy "msgs: insert" on chat_messages for insert with check (
 -- Create two storage buckets in the dashboard:
 --   Bucket name: "resources"  → Public: ON
 --   Bucket name: "avatars"    → Public: ON
+
+
+-- Update photo URL (avoids uuid = text operator mismatch from client)
+create or replace function update_photo_url(p_user_id text, p_photo_url text)
+returns void language sql security definer as $$
+  update users set photo_url = p_photo_url where id = p_user_id::uuid;
+$$;
+
+-- Fix "operator does not exist: uuid = text" error from Dart client
+-- This allows Postgres to automatically cast text to uuid when comparing
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_cast 
+    WHERE castsource = 'text'::regtype 
+    AND casttarget = 'uuid'::regtype
+    AND castcontext = 'i'
+  ) THEN
+    CREATE CAST (text AS uuid) WITH INOUT AS IMPLICIT;
+  END IF;
+END $$;
 
 select 'UniSync database setup complete!' as result;
