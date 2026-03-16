@@ -85,11 +85,40 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
           const SizedBox(height: 12),
           TextField(controller: contentCtrl, maxLines: 4, decoration: const InputDecoration(labelText: 'Content')),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: type,
-            items: ['Academic','Financial','General','Club']
-                .map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-            onChanged: (v) => setS(() => type = v!),
+          GestureDetector(
+            onTap: () async {
+              final picked = await showModalBottomSheet<String>(
+                context: dCtx,
+                backgroundColor: Colors.white,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+                    child: Row(children: [
+                      Text('Select Type', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
+                      const Spacer(),
+                      IconButton(onPressed: () => Navigator.pop(dCtx), icon: const Icon(Icons.close_rounded, size: 20)),
+                    ]),
+                  ),
+                  const Divider(height: 1),
+                  ...['Academic','Financial','General','Club'].map((t) => ListTile(
+                    title: Text(t, style: GoogleFonts.inter(fontSize: 14)),
+                    trailing: type == t ? const Icon(Icons.check_rounded, color: AppTheme.primary, size: 20) : null,
+                    onTap: () => Navigator.pop(dCtx, t),
+                  )),
+                  const SizedBox(height: 16),
+                ]),
+              );
+              if (picked != null) setS(() => type = picked);
+            },
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Type',
+                suffixIcon: Icon(Icons.expand_more_rounded, size: 20),
+              ),
+              child: Text(type, style: GoogleFonts.inter(fontSize: 14)),
+            ),
           ),
         ])),
         actions: [

@@ -55,7 +55,16 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(backgroundColor: AppTheme.primary, title: Text('Resource Details', style: GoogleFonts.poppins(color: Colors.white))),
-      body: SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.94),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4))],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Header card
         Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(
           gradient: LinearGradient(colors: [c, c.withOpacity(0.7)], begin: Alignment.topLeft, end: Alignment.bottomRight),
@@ -112,7 +121,9 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
             label: Text('Delete Resource', style: GoogleFonts.inter(color: AppTheme.danger, fontWeight: FontWeight.w600)),
           )),
         ],
-      ])),
+      ]),
+        ),
+      ),
     );
   }
 

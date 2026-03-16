@@ -27,7 +27,11 @@ class ProfileService {
     );
 
     final url = supabase.storage.from('avatars').getPublicUrl(path);
-    await supabase.from('users').update({'photo_url': url}).eq('id', userId);
+    // Use RPC to avoid "uuid = text" operator mismatch
+    await supabase.rpc('update_photo_url', params: {
+      'p_user_id': userId,
+      'p_photo_url': url,
+    });
     return url;
   }
 

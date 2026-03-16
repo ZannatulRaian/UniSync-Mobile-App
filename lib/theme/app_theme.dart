@@ -10,13 +10,13 @@ class AppTheme {
   static const Color warning      = Color(0xFFE3A008);
   static const Color danger       = Color(0xFFE02424);
   static const Color dangerLight  = Color(0xFFFDE8E8);
-  static const Color bg           = Color(0xE8F4F6FA);
-  static const Color surface      = Color(0xEEFFFFFF);
+  static const Color bg           = Color(0xFFF4F6FA);
+  static const Color surface      = Color(0xFFFFFFFF);
   static const Color border       = Color(0xFFDDE1EC);
   static const Color ink900       = Color(0xFF111928);
   static const Color ink600       = Color(0xFF4B5563);
   static const Color ink400       = Color(0xFF9CA3AF);
-  static const Color cardOverlay  = Color(0xE8FFFFFF);
+  static const Color cardOverlay  = Color(0xFFFFFFFF);
 
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft, end: Alignment.bottomRight,

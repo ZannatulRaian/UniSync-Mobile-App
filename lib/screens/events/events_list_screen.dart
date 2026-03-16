@@ -85,23 +85,47 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> with Single
         }
         final dayEvents = _selectedDay != null ? (eventMap[DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day)] ?? []) : [];
         return Column(children: [
-          TableCalendar<Event>(
-            firstDay: DateTime.now().subtract(const Duration(days: 365)),
-            lastDay: DateTime.now().add(const Duration(days: 365)),
-            focusedDay: _focusedDay, selectedDayPredicate: (d) => isSameDay(_selectedDay, d),
-            eventLoader: (day) => eventMap[DateTime(day.year, day.month, day.day)] ?? [],
-            onDaySelected: (sel, foc) => setState(() { _selectedDay = sel; _focusedDay = foc; }),
-            headerStyle: HeaderStyle(formatButtonVisible: false, titleCentered: true,
-              titleTextStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-            calendarStyle: CalendarStyle(
-              todayDecoration: BoxDecoration(color: AppTheme.primaryLight, shape: BoxShape.circle),
-              todayTextStyle: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
-              selectedDecoration: const BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle),
-              markerDecoration: const BoxDecoration(color: AppTheme.accent, shape: BoxShape.circle),
+          // Calendar wrapped in white card
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.94),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 12, offset: const Offset(0, 4))],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: TableCalendar<Event>(
+                  firstDay: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDay: DateTime.now().add(const Duration(days: 365)),
+                  focusedDay: _focusedDay, selectedDayPredicate: (d) => isSameDay(_selectedDay, d),
+                  eventLoader: (day) => eventMap[DateTime(day.year, day.month, day.day)] ?? [],
+                  onDaySelected: (sel, foc) => setState(() { _selectedDay = sel; _focusedDay = foc; }),
+                  headerStyle: HeaderStyle(
+                    formatButtonVisible: false,
+                    titleCentered: true,
+                    titleTextStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    decoration: const BoxDecoration(color: Colors.transparent),
+                  ),
+                  calendarStyle: CalendarStyle(
+                    todayDecoration: BoxDecoration(color: AppTheme.primaryLight, shape: BoxShape.circle),
+                    todayTextStyle: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
+                    selectedDecoration: const BoxDecoration(color: AppTheme.primary, shape: BoxShape.circle),
+                    markerDecoration: const BoxDecoration(color: AppTheme.accent, shape: BoxShape.circle),
+                    defaultTextStyle: const TextStyle(color: AppTheme.ink900),
+                    weekendTextStyle: TextStyle(color: AppTheme.primary.withOpacity(0.7)),
+                    outsideTextStyle: const TextStyle(color: AppTheme.ink400),
+                  ),
+                ),
+              ),
             ),
           ),
-          if (dayEvents.isNotEmpty) Expanded(child: ListView.builder(padding: const EdgeInsets.all(16),
-            itemCount: dayEvents.length, itemBuilder: (_, i) => _EventTile(dayEvents[i]))),
+          if (dayEvents.isNotEmpty) Expanded(child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            itemCount: dayEvents.length,
+            itemBuilder: (_, i) => _EventTile(dayEvents[i]),
+          )),
         ]);
       },
     );
@@ -117,7 +141,7 @@ class _EventTile extends ConsumerWidget {
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailScreen(event: event))),
       child: Container(margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppTheme.cardOverlay, borderRadius: BorderRadius.circular(14), border: Border.all(color: c.withOpacity(0.2))),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: c.withOpacity(0.25)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))]),
         child: Row(children: [
           Container(width: 52, height: 52, decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

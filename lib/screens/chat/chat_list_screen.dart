@@ -88,8 +88,11 @@ class _ActiveUsersBar extends StatelessWidget {
     if (dmRooms.isEmpty) return const SizedBox.shrink();
 
     return Container(
-      height: 90,
-      color: AppTheme.surface,
+      height: 100,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.92),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -108,8 +111,14 @@ class _ActiveUsersBar extends StatelessWidget {
             onTap: () => Navigator.push(context,
               MaterialPageRoute(builder: (_) => ChatRoomScreen(room: room))),
             child: Container(
-              width: 64,
-              margin: const EdgeInsets.only(right: 10),
+              width: 68,
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -154,7 +163,7 @@ class _ActiveUsersBar extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     shortName,
-                    style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink600),
+                    style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink900, fontWeight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     textAlign: TextAlign.center,
@@ -182,9 +191,17 @@ class _RoomTile extends StatelessWidget {
     final otherIds = room.memberIds.where((id) => id != userId).toList();
     final isOnline = !room.isGroup && otherIds.isNotEmpty && onlineIds.contains(otherIds.first);
 
-    return ListTile(
-      onTap: () => Navigator.push(context,
-        MaterialPageRoute(builder: (_) => ChatRoomScreen(room: room))),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.92),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => ChatRoomScreen(room: room))),
       leading: Stack(clipBehavior: Clip.none, children: [
         CircleAvatar(
           backgroundColor: c.withOpacity(0.15),
@@ -237,6 +254,7 @@ class _RoomTile extends StatelessWidget {
               textAlign: TextAlign.center)),
         ],
       ]),
+      ),
     );
   }
 }

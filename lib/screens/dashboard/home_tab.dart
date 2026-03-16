@@ -127,7 +127,7 @@ class _AnnouncementCard extends StatelessWidget {
     final color = _colors[a.type] ?? AppTheme.ink400;
     return Container(width: 220, margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppTheme.cardOverlay, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
@@ -150,7 +150,7 @@ class _EventCard extends StatelessWidget {
     return GestureDetector(onTap: onTap, child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppTheme.cardOverlay, borderRadius: BorderRadius.circular(14), border: Border.all(color: c.withOpacity(0.2))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: c.withOpacity(0.2)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))]),
       child: Row(children: [
         Container(width: 48, height: 48, decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
           child: Icon(Icons.event_rounded, color: c, size: 24)),
@@ -187,9 +187,10 @@ class _ResourceMiniTile extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AppTheme.cardOverlay,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppTheme.border),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))],
         ),
         child: Row(children: [
           Container(

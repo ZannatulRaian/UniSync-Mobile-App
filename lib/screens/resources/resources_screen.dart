@@ -124,9 +124,10 @@ class _ResourceTile extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppTheme.cardOverlay,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppTheme.border),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         child: Row(children: [
           Container(

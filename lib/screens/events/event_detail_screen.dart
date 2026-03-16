@@ -44,7 +44,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               child: Center(child: Icon(Icons.event_rounded, size: 72, color: Colors.white.withOpacity(0.3)))),
             title: Text(e.title, style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 15)),
           )),
-        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SliverToBoxAdapter(child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.94),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4))],
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Category + attendees
           Row(children: [
             Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -90,7 +99,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               label: Text('Delete Event', style: GoogleFonts.inter(color: AppTheme.danger, fontWeight: FontWeight.w600)),
             )),
           ],
-        ]))),
+        ]),
+          ),
+        ),
+      ),
       ]),
     );
   }

@@ -161,11 +161,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         style: GoogleFonts.inter(fontSize: 14, color: AppTheme.ink600, height: 1.5)),
       const SizedBox(height: 28),
       Row(children: [
-        Expanded(child: _RoleCard(icon: Icons.school_outlined, label: 'Student', hint: 'ID starts with 3',
+        Expanded(child: _RoleCard(icon: Icons.school_outlined, label: 'Student', hint: '',
           selected: _selectedRole == 'student', color: AppTheme.primary,
           onTap: () => setState(() { _selectedRole = 'student'; _idError = null; }))),
         const SizedBox(width: 14),
-        Expanded(child: _RoleCard(icon: Icons.person_4_outlined, label: 'Faculty', hint: 'ID starts with 1',
+        Expanded(child: _RoleCard(icon: Icons.person_4_outlined, label: 'Faculty', hint: '',
           selected: _selectedRole == 'faculty', color: AppTheme.accent,
           onTap: () => setState(() { _selectedRole = 'faculty'; _idError = null; }))),
       ]),
@@ -183,18 +183,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           prefixIcon: const Icon(Icons.badge_outlined, size: 18),
           errorText: _idError, errorMaxLines: 2,
         ),
-      ),
-      const SizedBox(height: 16),
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: AppTheme.primaryLight, borderRadius: BorderRadius.circular(10)),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Icon(Icons.info_outline_rounded, size: 16, color: AppTheme.primary),
-          const SizedBox(width: 8),
-          Expanded(child: Text(
-            'Student IDs: 8 digits starting with 3  (e.g. 31234567)\nFaculty IDs: 8 digits starting with 1  (e.g. 11234567)',
-            style: GoogleFonts.inter(fontSize: 12, color: AppTheme.primary, height: 1.5))),
-        ]),
       ),
       const SizedBox(height: 8),
     ]));
@@ -224,6 +212,6 @@ class _RoleCard extends StatelessWidget {
         Text(label, style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700,
           color: selected ? color : AppTheme.ink900)),
         const SizedBox(height: 4),
-        Text(hint, style: GoogleFonts.inter(fontSize: 11, color: selected ? color : AppTheme.ink400)),
+        if (hint.isNotEmpty) Text(hint, style: GoogleFonts.inter(fontSize: 11, color: selected ? color : AppTheme.ink400)),
       ])));
 }

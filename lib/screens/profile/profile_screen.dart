@@ -71,34 +71,44 @@ class ProfileScreen extends ConsumerWidget {
           decoration: BoxDecoration(color: AppTheme.primaryLight, borderRadius: BorderRadius.circular(20)),
           child: Text(user.role.toUpperCase(), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primary))),
         const SizedBox(height: 24),
-        // Info cards
-        _InfoCard(icon: Icons.school_rounded, label: 'Department', value: user.department),
-        if (user.role == 'student') _InfoCard(icon: Icons.book_rounded, label: 'Semester', value: user.semester.isEmpty ? 'Not set' : user.semester),
-        _InfoCard(icon: Icons.badge_rounded,  label: 'Student ID', value: user.studentId.isEmpty ? 'Not set' : user.studentId),
-        const SizedBox(height: 20),
-        // Bookmarked announcements
-        Align(alignment: Alignment.centerLeft,
-          child: Text('Bookmarked Announcements', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.ink900))),
-        const SizedBox(height: 10),
-        if (user.bookmarkedAnnouncements.isEmpty)
-          Text('No bookmarks yet', style: GoogleFonts.inter(color: AppTheme.ink400, fontSize: 13))
-        else
-          Consumer(builder: (ctx, ref2, _) {
-            final ann = ref2.watch(announcementsStreamProvider(null));
-            return ann.when(
-              loading: () => const CircularProgressIndicator(),
-              error: (_, __) => const SizedBox(),
-              data: (list) {
-                final bookmarked = list.where((a) => user.bookmarkedAnnouncements.contains(a.id)).toList();
-                return Column(children: bookmarked.map((a) => ListTile(
-                  dense: true, contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.bookmark_rounded, color: AppTheme.primary, size: 18),
-                  title: Text(a.title, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink900)),
-                  subtitle: Text(a.type, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
-                )).toList());
-              },
-            );
-          }),
+        // White card wrapping info + bookmarks
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.94),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4))],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            _InfoCard(icon: Icons.school_rounded, label: 'Department', value: user.department),
+            if (user.role == 'student') _InfoCard(icon: Icons.book_rounded, label: 'Semester', value: user.semester.isEmpty ? 'Not set' : user.semester),
+            _InfoCard(icon: Icons.badge_rounded,  label: 'Student ID', value: user.studentId.isEmpty ? 'Not set' : user.studentId),
+            const SizedBox(height: 20),
+            Text('Bookmarked Announcements', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.ink900)),
+            const SizedBox(height: 10),
+            if (user.bookmarkedAnnouncements.isEmpty)
+              Text('No bookmarks yet', style: GoogleFonts.inter(color: AppTheme.ink400, fontSize: 13))
+            else
+              Consumer(builder: (ctx, ref2, _) {
+                final ann = ref2.watch(announcementsStreamProvider(null));
+                return ann.when(
+                  loading: () => const CircularProgressIndicator(),
+                  error: (_, __) => const SizedBox(),
+                  data: (list) {
+                    final bookmarked = list.where((a) => user.bookmarkedAnnouncements.contains(a.id)).toList();
+                    return Column(children: bookmarked.map((a) => ListTile(
+                      dense: true, contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.bookmark_rounded, color: AppTheme.primary, size: 18),
+                      title: Text(a.title, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink900)),
+                      subtitle: Text(a.type, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
+                    )).toList());
+                  },
+                );
+              }),
+          ]),
+        ),
+        const SizedBox(height: 16),
       ])),
     );
   }
