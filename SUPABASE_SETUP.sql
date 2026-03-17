@@ -93,10 +93,6 @@ create index if not exists idx_messages_room      on chat_messages(room_id, crea
 create index if not exists idx_resources_dept     on resources(department);
 
 -- ── SECURITY: ROLE ASSIGNED FROM ID FORMAT AT SIGNUP ─────────────────
--- Student IDs start with 3 followed by 7 digits  (e.g. 31234567)
--- Faculty IDs start with 1 followed by 7 digits  (e.g. 11234567)
--- The trigger reads the student_id field and sets role accordingly.
--- Any other format is rejected with an error.
 drop trigger if exists trg_assign_role_from_id on users;
 drop function if exists assign_role_from_id();
 
