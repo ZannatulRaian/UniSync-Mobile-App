@@ -17,5 +17,11 @@ class ResourceFilter {
   int get hashCode => Object.hash(dept, type);
 }
 
-final resourcesStreamProvider = StreamProvider.family<List<Resource>, ResourceFilter>((ref, filter) =>
-    ref.watch(resourceServiceProvider).getResources(department: filter.dept, type: filter.type));
+// keepAlive so resources don't reload on every tab switch
+final resourcesStreamProvider =
+    StreamProvider.family<List<Resource>, ResourceFilter>((ref, filter) {
+  ref.keepAlive();
+  return ref
+      .watch(resourceServiceProvider)
+      .getResources(department: filter.dept, type: filter.type);
+});

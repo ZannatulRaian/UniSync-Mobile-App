@@ -22,97 +22,199 @@ class HomeTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider);
+    final user               = ref.watch(currentUserProvider);
     final eventsAsync        = ref.watch(eventsStreamProvider);
     final announcementsAsync = ref.watch(announcementsStreamProvider('All'));
     final resourcesAsync     = ref.watch(resourcesStreamProvider(const ResourceFilter()));
-    final hour = DateTime.now().hour;
+    final hour               = DateTime.now().hour;
     final greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-    return Scaffold(backgroundColor: Colors.transparent, body: CustomScrollView(slivers: [
-      // Header
-      SliverToBoxAdapter(child: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient,
-            borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24))),
-        child: SafeArea(bottom: false, child: Padding(padding: const EdgeInsets.fromLTRB(18, 12, 18, 20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('$greeting 👋', style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-              Text(user?.name ?? 'Student', style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-              Text(user?.department ?? '', style: GoogleFonts.inter(color: Colors.white60, fontSize: 12)),
-            ])),
-            CircleAvatar(backgroundColor: Colors.white.withOpacity(0.15), child: const Icon(Icons.person_rounded, color: Colors.white, size: 24)),
-          ]),
-          const SizedBox(height: 16),
-          // Quick stats
-          Row(children: [
-            if (user?.role == 'student') ...[
-              _statBox('Semester', user?.semester?.isEmpty ?? true ? '-' : user!.semester),
-              const SizedBox(width: 10),
-            ] else ...[
-              _statBox('Dept', user?.department != null && user!.department.length > 8
-                  ? '${user.department.substring(0,8)}..' : (user?.department ?? '-')),
-              const SizedBox(width: 10),
-            ],
-            _statBox('ID', user?.studentId ?? '-'),
-            const SizedBox(width: 10),
-            _statBox('Role', (user?.role ?? 'Student').toUpperCase()),
-          ]),
-        ]))),
-      )),
-      // Announcements
-      SliverToBoxAdapter(child: SectionHeader(title: 'Announcements', action: 'See all', onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AnnouncementsScreen())))),
-      SliverToBoxAdapter(child: announcementsAsync.when(
-        loading: () => const ShimmerCard(),
-        error: (e, _) => const SizedBox.shrink(),
-        data: (list) => SizedBox(height: 100,
-            child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: list.take(5).length, itemBuilder: (_, i) => _AnnouncementCard(list[i]))),
-      )),
-      // Upcoming events
-      SliverToBoxAdapter(child: SectionHeader(title: 'Upcoming Events', action: 'See all', onAction: () {})),
-      eventsAsync.when(
-        loading: () => SliverList(delegate: SliverChildBuilderDelegate((_, i) => const ShimmerCard(), childCount: 3)),
-        error: (e, _) => const SliverToBoxAdapter(child: SizedBox.shrink()),
-        data: (events) {
-          final upcoming = events.where((e) => e.date.isAfter(DateTime.now())).take(4).toList();
-          if (upcoming.isEmpty) return SliverToBoxAdapter(child: EmptyState(icon: Icons.event_rounded, title: 'No upcoming events', subtitle: 'Check back later'));
-          return SliverList(delegate: SliverChildBuilderDelegate(
-                (_, i) => _EventCard(upcoming[i], onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailScreen(event: upcoming[i])))),
-            childCount: upcoming.length,
-          ));
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: RefreshIndicator(
+        // Pull-to-refresh invalidates all providers and re-fetches
+        onRefresh: () async {
+          ref.invalidate(announcementsStreamProvider);
+          ref.invalidate(eventsStreamProvider);
+          ref.invalidate(resourcesStreamProvider);
+          // Small delay so the indicator is visible
+          await Future.delayed(const Duration(milliseconds: 600));
         },
+        child: CustomScrollView(slivers: [
+          // ── Header ──────────────────────────────────────────────────────
+          SliverToBoxAdapter(child: Container(
+            decoration: const BoxDecoration(
+              gradient: AppTheme.primaryGradient,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(24),
+                bottomRight: Radius.circular(24),
+              ),
+            ),
+            child: SafeArea(bottom: false, child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('$greeting 👋',
+                        style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+                    Text(user?.name ?? 'Student',
+                        style: GoogleFonts.poppins(
+                            color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+                    Text(user?.department ?? '',
+                        style: GoogleFonts.inter(color: Colors.white60, fontSize: 12)),
+                  ])),
+                  // FIX: Shows real profile photo; falls back to initials
+                  GestureDetector(
+                    onTap: () {},
+                    child: CircleAvatar(
+                      radius: 22,
+                      backgroundColor: Colors.white.withOpacity(0.25),
+                      backgroundImage: (user?.photoUrl != null && user!.photoUrl!.isNotEmpty)
+                          ? NetworkImage(user.photoUrl!)
+                          : null,
+                      child: (user?.photoUrl == null || user!.photoUrl!.isEmpty)
+                          ? (user?.name.isNotEmpty == true
+                              ? Text(user!.name[0].toUpperCase(),
+                                  style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700))
+                              : const Icon(Icons.person_rounded, color: Colors.white, size: 24))
+                          : null,
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                Row(children: [
+                  if (user?.role == 'student') ...[
+                    _statBox('Semester', user?.semester?.isEmpty ?? true ? '-' : user!.semester),
+                    const SizedBox(width: 10),
+                  ] else ...[
+                    _statBox('Dept', user?.department != null && user!.department.length > 8
+                        ? '${user.department.substring(0, 8)}..'
+                        : (user?.department ?? '-')),
+                    const SizedBox(width: 10),
+                  ],
+                  _statBox('ID', user?.studentId ?? '-'),
+                  const SizedBox(width: 10),
+                  _statBox('Role', (user?.role ?? 'Student').toUpperCase()),
+                ]),
+              ]),
+            )),
+          )),
+
+          // ── Announcements ───────────────────────────────────────────────
+          SliverToBoxAdapter(child: SectionHeader(
+            title: 'Announcements',
+            action: 'See all',
+            onAction: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const AnnouncementsScreen())),
+          )),
+          SliverToBoxAdapter(child: announcementsAsync.when(
+            loading: () => const ShimmerCard(),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: TextButton.icon(
+                onPressed: () => ref.invalidate(announcementsStreamProvider),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Reload announcements'),
+              ),
+            ),
+            data: (list) => SizedBox(
+              height: 100,
+              child: list.isEmpty
+                  ? Center(child: Text('No announcements yet',
+                      style: GoogleFonts.inter(color: AppTheme.ink400, fontSize: 13)))
+                  : ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: list.take(5).length,
+                      itemBuilder: (_, i) => _AnnouncementCard(list[i]),
+                    ),
+            ),
+          )),
+
+          // ── Upcoming Events ─────────────────────────────────────────────
+          SliverToBoxAdapter(child: SectionHeader(
+            title: 'Upcoming Events',
+            action: 'See all',
+            onAction: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const EventsListScreen())),
+          )),
+          eventsAsync.when(
+            loading: () => SliverList(delegate: SliverChildBuilderDelegate(
+                (_, i) => const ShimmerCard(), childCount: 3)),
+            error: (e, _) => SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: TextButton.icon(
+                onPressed: () => ref.invalidate(eventsStreamProvider),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Reload events'),
+              ),
+            )),
+            data: (events) {
+              final upcoming = events
+                  .where((e) => e.date.isAfter(DateTime.now()))
+                  .take(4)
+                  .toList();
+              if (upcoming.isEmpty) return SliverToBoxAdapter(
+                child: EmptyState(
+                    icon: Icons.event_rounded,
+                    title: 'No upcoming events',
+                    subtitle: 'Check back later'),
+              );
+              return SliverList(delegate: SliverChildBuilderDelegate(
+                (_, i) => _EventCard(upcoming[i],
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => EventDetailScreen(event: upcoming[i])))),
+                childCount: upcoming.length,
+              ));
+            },
+          ),
+
+          // ── Recent Resources ────────────────────────────────────────────
+          SliverToBoxAdapter(child: SectionHeader(
+            title: 'Recent Resources',
+            action: 'See all',
+            onAction: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ResourcesScreen())),
+          )),
+          SliverToBoxAdapter(child: resourcesAsync.when(
+            loading: () => const ShimmerCard(),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: TextButton.icon(
+                onPressed: () => ref.invalidate(resourcesStreamProvider),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Reload resources'),
+              ),
+            ),
+            data: (list) {
+              final recent = list.take(4).toList();
+              if (recent.isEmpty) return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text('No resources yet. Upload one!',
+                    style: GoogleFonts.inter(color: AppTheme.ink400, fontSize: 13)),
+              );
+              return Column(children: recent.map((r) => _ResourceMiniTile(r)).toList());
+            },
+          )),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        ]),
       ),
-      // Recent Resources
-      SliverToBoxAdapter(child: SectionHeader(
-        title: 'Recent Resources',
-        action: 'See all',
-        onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResourcesScreen())),
-      )),
-      SliverToBoxAdapter(child: resourcesAsync.when(
-        loading: () => const ShimmerCard(),
-        error:   (e, _) => const SizedBox.shrink(),
-        data: (list) {
-          final recent = list.take(4).toList();
-          if (recent.isEmpty) return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text('No resources yet. Upload one!',
-                style: GoogleFonts.inter(color: AppTheme.ink400, fontSize: 13)),
-          );
-          return Column(
-            children: recent.map((r) => _ResourceMiniTile(r)).toList(),
-          );
-        },
-      )),
-      const SliverToBoxAdapter(child: SizedBox(height: 24)),
-    ]));
+    );
   }
 
   Widget _statBox(String label, String value) => Expanded(child: Container(
     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-    decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+    decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
     child: Column(children: [
-      Text(value, style: GoogleFonts.poppins(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
+      Text(value,
+          style: GoogleFonts.poppins(
+              color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+          overflow: TextOverflow.ellipsis),
       Text(label, style: GoogleFonts.inter(color: Colors.white60, fontSize: 10)),
     ]),
   ));
@@ -121,7 +223,12 @@ class HomeTab extends ConsumerWidget {
 class _AnnouncementCard extends StatelessWidget {
   final Announcement a;
   const _AnnouncementCard(this.a);
-  static const _colors = {'Academic': AppTheme.primary, 'Financial': AppTheme.accent, 'General': AppTheme.warning, 'Club': Color(0xFF9B59B6)};
+  static const _colors = {
+    'Academic': AppTheme.primary,
+    'Financial': AppTheme.accent,
+    'General': AppTheme.warning,
+    'Club': Color(0xFF9B59B6),
+  };
 
   void _showDetail(BuildContext context) {
     final color = _colors[a.type] ?? AppTheme.ink400;
@@ -136,8 +243,8 @@ class _AnnouncementCard extends StatelessWidget {
         initialChildSize: 0.55,
         minChildSize: 0.35,
         maxChildSize: 0.9,
-        builder: (_, scrollCtrl) => SingleChildScrollView(
-          controller: scrollCtrl,
+        builder: (_, sc) => SingleChildScrollView(
+          controller: sc,
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Center(child: Container(width: 40, height: 4,
@@ -146,21 +253,24 @@ class _AnnouncementCard extends StatelessWidget {
             Row(children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                child: Text(a.type, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w700, fontSize: 11)),
+                decoration: BoxDecoration(
+                    color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: Text(a.type,
+                    style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w700, fontSize: 11)),
               ),
               const Spacer(),
-              Text(
-                'Posted by ${a.postedBy}',
-                style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400),
-              ),
+              Text('Posted by ${a.postedBy}',
+                  style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
             ]),
             const SizedBox(height: 12),
-            Text(a.title, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.ink900)),
+            Text(a.title,
+                style: GoogleFonts.poppins(
+                    fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.ink900)),
             const SizedBox(height: 10),
             const Divider(),
             const SizedBox(height: 10),
-            Text(a.content, style: GoogleFonts.inter(fontSize: 14, color: AppTheme.ink600, height: 1.6)),
+            Text(a.content,
+                style: GoogleFonts.inter(fontSize: 14, color: AppTheme.ink600, height: 1.6)),
           ]),
         ),
       ),
@@ -172,15 +282,23 @@ class _AnnouncementCard extends StatelessWidget {
     final color = _colors[a.type] ?? AppTheme.ink400;
     return GestureDetector(
       onTap: () => _showDetail(context),
-      child: Container(width: 220, margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))]),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      child: Container(
+        width: 220, margin: const EdgeInsets.only(right: 12), padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 2))],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-              child: Text(a.type, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: color))),
+              child: Text(a.type,
+                  style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: color))),
           Expanded(child: Padding(padding: const EdgeInsets.only(top: 8),
-              child: Text(a.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink900)))),
+              child: Text(a.title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink900)))),
           Text(a.postedBy, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
         ]),
       ),
@@ -195,34 +313,44 @@ class _EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = Color(int.parse('FF${event.imageColor}', radix: 16));
-    return GestureDetector(onTap: onTap, child: Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: c.withOpacity(0.2)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))]),
-      child: Row(children: [
-        Container(width: 48, height: 48, decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(Icons.event_rounded, color: c, size: 24)),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(event.title, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.ink900)),
-          const SizedBox(height: 2),
-          Text('${DateFormat('MMM d, yyyy').format(event.date)} • ${event.time}', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.ink400)),
-          Text('📍 ${event.location}', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.ink600)),
-        ])),
-        const Icon(Icons.chevron_right_rounded, color: AppTheme.ink400),
-      ]),
-    ));
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: c.withOpacity(0.2)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 2))],
+        ),
+        child: Row(children: [
+          Container(width: 48, height: 48,
+              decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+              child: Icon(Icons.event_rounded, color: c, size: 24)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(event.title,
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.ink900)),
+            const SizedBox(height: 2),
+            Text('${DateFormat('MMM d, yyyy').format(event.date)} • ${event.time}',
+                style: GoogleFonts.inter(fontSize: 12, color: AppTheme.ink400)),
+            Text('📍 ${event.location}',
+                style: GoogleFonts.inter(fontSize: 12, color: AppTheme.ink600)),
+          ])),
+          const Icon(Icons.chevron_right_rounded, color: AppTheme.ink400),
+        ]),
+      ),
+    );
   }
 }
 
 class _ResourceMiniTile extends StatelessWidget {
   final Resource r;
   const _ResourceMiniTile(this.r);
-
   @override
   Widget build(BuildContext context) {
     final c = Color(int.parse('FF${r.iconColor}', radix: 16));
-    IconData icon = switch (r.type.toUpperCase()) {
+    final IconData icon = switch (r.type.toUpperCase()) {
       'PDF'            => Icons.picture_as_pdf_rounded,
       'DOCX' || 'DOC' => Icons.description_rounded,
       'PPT' || 'PPTX' => Icons.slideshow_rounded,
@@ -235,20 +363,14 @@ class _ResourceMiniTile extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.white, borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppTheme.border),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 2))],
         ),
         child: Row(children: [
-          Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              color: c.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: c, size: 22),
-          ),
+          Container(width: 40, height: 40,
+              decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: c, size: 22)),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(r.title,
@@ -260,10 +382,7 @@ class _ResourceMiniTile extends StatelessWidget {
           ])),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: c.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(6),
-            ),
+            decoration: BoxDecoration(color: c.withOpacity(0.08), borderRadius: BorderRadius.circular(6)),
             child: Text(r.type,
                 style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: c)),
           ),

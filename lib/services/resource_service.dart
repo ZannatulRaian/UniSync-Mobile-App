@@ -7,10 +7,12 @@ import 'supabase_client.dart';
 
 class ResourceService {
   static const _maxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
-  static const _allowedExts = ['pdf','doc','docx','ppt','pptx','jpg','jpeg','png'];
+  static const _allowedExts = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'jpeg', 'png'];
 
   Stream<List<Resource>> getResources({String? department, String? type}) {
-    final controller = StreamController<List<Resource>>();
+    // Broadcast controller — multiple listeners (HomeTab + ResourcesScreen)
+    // can subscribe simultaneously without "Stream already listened" errors.
+    final controller = StreamController<List<Resource>>.broadcast();
 
     Future<List<Resource>> fetch() async {
       final rows = await supabase
@@ -27,34 +29,36 @@ class ResourceService {
       return list;
     }
 
-    // Do initial fetch immediately — no loading->error flash on filter change
+    // Initial fetch — surfaces errors so the UI can show a Retry button
     fetch().then((data) {
       if (!controller.isClosed) controller.add(data);
     }).catchError((e) {
       if (!controller.isClosed) controller.addError(e);
     });
 
-    // Subscribe to realtime and re-fetch on any table change
-    final channelName = 'resources_${department ?? "all"}_${type ?? "all"}';
+    // Re-fetch on any realtime table change
+    final channelName =
+        'resources_${department ?? "all"}_${type ?? "all"}_${DateTime.now().millisecondsSinceEpoch}';
     final channel = supabase.channel(channelName);
-    channel.onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'resources',
-      callback: (_) async {
-        if (!controller.isClosed) {
-          try {
-            controller.add(await fetch());
-          } catch (e) {
-            if (!controller.isClosed) controller.addError(e);
-          }
-        }
-      },
-    ).subscribe();
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'resources',
+          callback: (_) async {
+            if (controller.isClosed) return;
+            try {
+              controller.add(await fetch());
+            } catch (e) {
+              if (!controller.isClosed) controller.addError(e);
+            }
+          },
+        )
+        .subscribe();
 
     controller.onCancel = () {
       supabase.removeChannel(channel);
-      controller.close();
+      // Do NOT close — broadcast controllers can regain listeners at any time
     };
 
     return controller.stream;
@@ -62,9 +66,12 @@ class ResourceService {
 
   Future<void> uploadResource({
     required File file,
-    required String title, required String subject,
-    required String department, required String semester,
-    required String type, required String uploadedBy,
+    required String title,
+    required String subject,
+    required String department,
+    required String semester,
+    required String type,
+    required String uploadedBy,
     required String uploadedById,
   }) async {
     final bytes = await file.readAsBytes();
@@ -77,14 +84,15 @@ class ResourceService {
     }
     if (title.trim().isEmpty) throw Exception('Title required');
 
-    final storagePath = 'resources/$uploadedById/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final storagePath =
+        'resources/$uploadedById/${DateTime.now().millisecondsSinceEpoch}.$ext';
     final sizeKB = (bytes.length / 1024).toStringAsFixed(0);
 
     await supabase.storage.from('resources').uploadBinary(storagePath, bytes);
     final url = supabase.storage.from('resources').getPublicUrl(storagePath);
 
-    const colors = ['1A56DB','0E9F6E','E3A008','E02424','9061F9'];
-    final color  = colors[DateTime.now().millisecond % colors.length];
+    const colors = ['1A56DB', '0E9F6E', 'E3A008', 'E02424', '9061F9'];
+    final color = colors[DateTime.now().millisecond % colors.length];
 
     await supabase.from('resources').insert({
       'title':          title.trim(),

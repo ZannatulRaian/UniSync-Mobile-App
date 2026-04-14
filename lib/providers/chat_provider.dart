@@ -4,11 +4,20 @@ import '../models/chat_model.dart';
 
 final chatServiceProvider = Provider((_) => ChatService());
 
-final chatRoomsProvider = StreamProvider.family<List<ChatRoom>, String>((ref, userId) =>
-    ref.watch(chatServiceProvider).getRoomsWithUnread(userId));
+// keepAlive so chat rooms stay loaded when switching tabs
+final chatRoomsProvider =
+    StreamProvider.family<List<ChatRoom>, String>((ref, userId) {
+  ref.keepAlive();
+  return ref.watch(chatServiceProvider).getRoomsWithUnread(userId);
+});
 
-final chatMessagesProvider = StreamProvider.family<List<ChatMessage>, String>((ref, roomId) =>
-    ref.watch(chatServiceProvider).getMessages(roomId));
+final chatMessagesProvider =
+    StreamProvider.family<List<ChatMessage>, String>((ref, roomId) {
+  ref.keepAlive();
+  return ref.watch(chatServiceProvider).getMessages(roomId);
+});
 
-final onlineUsersProvider = StreamProvider<Set<String>>((ref) =>
-    ref.watch(chatServiceProvider).onlineUserIds());
+final onlineUsersProvider = StreamProvider<Set<String>>((ref) {
+  ref.keepAlive();
+  return ref.watch(chatServiceProvider).onlineUserIds();
+});

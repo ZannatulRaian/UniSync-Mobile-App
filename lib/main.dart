@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme/app_theme.dart';
@@ -13,11 +14,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // ── Initialize Supabase ──────────────────────────────────────────────────
-  // Replace these two values with yours from the Supabase dashboard
+  // Load .env — keys never touch source control
+  await dotenv.load(fileName: '.env');
+
   await Supabase.initialize(
-    url:     'YOUR_SUPABASE_URL',      // e.g. https://abcdefgh.supabase.co
-    anonKey: 'YOUR_SUPABASE_ANON_KEY', // long string starting with eyJ...
+    url:     dotenv.env['SUPABASE_URL']!,
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    realtimeClientOptions: const RealtimeClientOptions(
+      eventsPerSecond: 10,
+    ),
   );
 
   runApp(const ProviderScope(child: UniSyncApp()));
@@ -44,7 +49,6 @@ class _AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<_AuthGate> {
-  // true = user has seen onboarding at least once this session
   bool _onboarded = false;
 
   @override
@@ -71,13 +75,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
       error:   (_, __) => const LoginScreen(),
       data: (state) {
         if (state.session != null) return const MainDashboard();
-
-        // Not logged in — show onboarding first, then Login is the root
         if (_onboarded) return const LoginScreen();
-
-        // First visit: show onboarding.
-        // onDone is called when user taps Skip or finishes slides without signing up.
-        // It brings them to LoginScreen (the root for unauthenticated users).
         return OnboardingScreen(
           onDone: () => setState(() => _onboarded = true),
         );

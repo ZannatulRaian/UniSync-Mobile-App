@@ -10,11 +10,14 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Supabase (replaces ALL Firebase packages)
+  # Supabase
   supabase_flutter: ^2.5.0
 
   # State management
   flutter_riverpod: ^2.6.1
+
+  # Environment variables (keeps Supabase keys out of source code)
+  flutter_dotenv: ^5.1.0
 
   # UI
   google_fonts: ^6.3.3
@@ -45,5 +48,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - .env
     - assets/images/background.jpg
     - assets/images/logo.png

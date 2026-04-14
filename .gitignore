@@ -1,0 +1,29 @@
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+*.g.dart
+
+# Android
+android/.gradle
+android/local.properties
+android/key.properties
+android/app/google-services.json
+
+# iOS
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/.symlinks/
+ios/Pods/
+
+# Environment — NEVER commit this
+.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
