@@ -55,7 +55,7 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
     if (user == null) {
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You must be signed in to upload'), backgroundColor: AppTheme.danger));
+          const SnackBar(content: Text('You must be signed in to upload'), backgroundColor: AppTheme.danger));
       return;
     }
     try {
@@ -71,71 +71,73 @@ class _ResourceUploadScreenState extends ConsumerState<ResourceUploadScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✓ Uploaded successfully!'), backgroundColor: AppTheme.accent));
+          const SnackBar(content: Text('✓ Uploaded successfully!'), backgroundColor: AppTheme.accent));
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceAll('Exception: ','')), backgroundColor: AppTheme.danger));
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ','')), backgroundColor: AppTheme.danger));
     } finally { if (mounted) setState(() => _loading = false); }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white,
       appBar: AppBar(backgroundColor: AppTheme.primary,
-        title: Text('Upload Resource', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600))),
+          title: Text('Upload Resource', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600))),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // File picker area
           GestureDetector(onTap: _loading ? null : _pickFile,
-            child: Container(width: double.infinity, padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                border: Border.all(color: _file != null ? AppTheme.accent : AppTheme.border, width: _file != null ? 2 : 1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(children: [
-                Icon(_file != null ? Icons.check_circle_rounded : Icons.upload_file_rounded,
-                  size: 44, color: _file != null ? AppTheme.accent : AppTheme.ink400),
-                const SizedBox(height: 8),
-                Text(_fileName ?? 'Tap to select a file',
-                  style: GoogleFonts.inter(color: _file != null ? AppTheme.accent : AppTheme.ink600,
-                    fontWeight: _file != null ? FontWeight.w600 : FontWeight.w400),
-                  textAlign: TextAlign.center),
-                if (_file == null) ...[
-                  const SizedBox(height: 4),
-                  Text('PDF, DOCX, PPT, JPG, PNG  •  Max 10 MB',
-                    style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
-                ],
-              ]),
-            )),
+              child: Container(width: double.infinity, padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  border: Border.all(color: _file != null ? AppTheme.accent : AppTheme.border, width: _file != null ? 2 : 1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(children: [
+                  Icon(_file != null ? Icons.check_circle_rounded : Icons.upload_file_rounded,
+                      size: 44, color: _file != null ? AppTheme.accent : AppTheme.ink400),
+                  const SizedBox(height: 8),
+                  Text(_fileName ?? 'Tap to select a file',
+                      style: GoogleFonts.inter(color: _file != null ? AppTheme.accent : AppTheme.ink600,
+                          fontWeight: _file != null ? FontWeight.w600 : FontWeight.w400),
+                      textAlign: TextAlign.center),
+                  if (_file == null) ...[
+                    const SizedBox(height: 4),
+                    Text('PDF, DOCX, PPT, JPG, PNG  •  Max 10 MB',
+                        style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
+                  ],
+                ]),
+              )),
           const SizedBox(height: 20),
           _lbl('Title'), const SizedBox(height: 6),
           TextFormField(controller: _titleCtrl, decoration: const InputDecoration(hintText: 'e.g. Data Structures Notes'),
-            validator: (v) => v!.trim().isNotEmpty ? null : 'Required'),
+              validator: (v) => v!.trim().isNotEmpty ? null : 'Required'),
           const SizedBox(height: 14),
           _lbl('Subject'), const SizedBox(height: 6),
           TextFormField(controller: _subjectCtrl, decoration: const InputDecoration(hintText: 'e.g. Data Structures'),
-            validator: (v) => v!.trim().isNotEmpty ? null : 'Required'),
+              validator: (v) => v!.trim().isNotEmpty ? null : 'Required'),
           const SizedBox(height: 14),
           Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _lbl('Department'), const SizedBox(height: 6),
               DropdownButtonFormField<String>(value: _dept, isExpanded: true,
-                decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
-                items: _depts.map((d) => DropdownMenuItem(value: d, child: Text(d, style: GoogleFonts.inter(fontSize: 12)))).toList(),
-                onChanged: (v) => setState(() => _dept = v!)),
+                  dropdownColor: Colors.white,
+                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
+                  items: _depts.map((d) => DropdownMenuItem(value: d, child: Text(d, style: GoogleFonts.inter(fontSize: 12)))).toList(),
+                  onChanged: (v) => setState(() => _dept = v!)),
             ])),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _lbl('Semester'), const SizedBox(height: 6),
               DropdownButtonFormField<String>(value: _semester, isExpanded: true,
-                decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
-                items: _sems.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                onChanged: (v) => setState(() => _semester = v!)),
+                  dropdownColor: Colors.white,
+                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
+                  items: _sems.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                  onChanged: (v) => setState(() => _semester = v!)),
             ])),
           ]),
           if (_loading) ...[

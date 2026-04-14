@@ -33,7 +33,7 @@ class HomeTab extends ConsumerWidget {
       // Header
       SliverToBoxAdapter(child: Container(
         decoration: const BoxDecoration(gradient: AppTheme.primaryGradient,
-          borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24))),
+            borderRadius: BorderRadius.only(bottomLeft: Radius.circular(24), bottomRight: Radius.circular(24))),
         child: SafeArea(bottom: false, child: Padding(padding: const EdgeInsets.fromLTRB(18, 12, 18, 20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -51,7 +51,7 @@ class HomeTab extends ConsumerWidget {
               const SizedBox(width: 10),
             ] else ...[
               _statBox('Dept', user?.department != null && user!.department.length > 8
-                ? '${user.department.substring(0,8)}..' : (user?.department ?? '-')),
+                  ? '${user.department.substring(0,8)}..' : (user?.department ?? '-')),
               const SizedBox(width: 10),
             ],
             _statBox('ID', user?.studentId ?? '-'),
@@ -66,8 +66,8 @@ class HomeTab extends ConsumerWidget {
         loading: () => const ShimmerCard(),
         error: (e, _) => const SizedBox.shrink(),
         data: (list) => SizedBox(height: 100,
-          child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: list.take(5).length, itemBuilder: (_, i) => _AnnouncementCard(list[i]))),
+            child: ListView.builder(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: list.take(5).length, itemBuilder: (_, i) => _AnnouncementCard(list[i]))),
       )),
       // Upcoming events
       SliverToBoxAdapter(child: SectionHeader(title: 'Upcoming Events', action: 'See all', onAction: () {})),
@@ -78,7 +78,7 @@ class HomeTab extends ConsumerWidget {
           final upcoming = events.where((e) => e.date.isAfter(DateTime.now())).take(4).toList();
           if (upcoming.isEmpty) return SliverToBoxAdapter(child: EmptyState(icon: Icons.event_rounded, title: 'No upcoming events', subtitle: 'Check back later'));
           return SliverList(delegate: SliverChildBuilderDelegate(
-            (_, i) => _EventCard(upcoming[i], onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailScreen(event: upcoming[i])))),
+                (_, i) => _EventCard(upcoming[i], onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailScreen(event: upcoming[i])))),
             childCount: upcoming.length,
           ));
         },
@@ -97,7 +97,7 @@ class HomeTab extends ConsumerWidget {
           if (recent.isEmpty) return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text('No resources yet. Upload one!',
-              style: GoogleFonts.inter(color: AppTheme.ink400, fontSize: 13)),
+                style: GoogleFonts.inter(color: AppTheme.ink400, fontSize: 13)),
           );
           return Column(
             children: recent.map((r) => _ResourceMiniTile(r)).toList(),
@@ -122,20 +122,68 @@ class _AnnouncementCard extends StatelessWidget {
   final Announcement a;
   const _AnnouncementCard(this.a);
   static const _colors = {'Academic': AppTheme.primary, 'Financial': AppTheme.accent, 'General': AppTheme.warning, 'Club': Color(0xFF9B59B6)};
+
+  void _showDetail(BuildContext context) {
+    final color = _colors[a.type] ?? AppTheme.ink400;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.55,
+        minChildSize: 0.35,
+        maxChildSize: 0.9,
+        builder: (_, scrollCtrl) => SingleChildScrollView(
+          controller: scrollCtrl,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
+            Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: Text(a.type, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w700, fontSize: 11)),
+              ),
+              const Spacer(),
+              Text(
+                'Posted by ${a.postedBy}',
+                style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            Text(a.title, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.ink900)),
+            const SizedBox(height: 10),
+            const Divider(),
+            const SizedBox(height: 10),
+            Text(a.content, style: GoogleFonts.inter(fontSize: 14, color: AppTheme.ink600, height: 1.6)),
+          ]),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = _colors[a.type] ?? AppTheme.ink400;
-    return Container(width: 220, margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-          child: Text(a.type, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: color))),
-        Expanded(child: Padding(padding: const EdgeInsets.only(top: 8),
-          child: Text(a.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink900)))),
-        Text(a.postedBy, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
-      ]),
+    return GestureDetector(
+      onTap: () => _showDetail(context),
+      child: Container(width: 220, margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withOpacity(0.3)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+              child: Text(a.type, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: color))),
+          Expanded(child: Padding(padding: const EdgeInsets.only(top: 8),
+              child: Text(a.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink900)))),
+          Text(a.postedBy, style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
+        ]),
+      ),
     );
   }
 }
@@ -153,7 +201,7 @@ class _EventCard extends StatelessWidget {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: c.withOpacity(0.2)), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0,2))]),
       child: Row(children: [
         Container(width: 48, height: 48, decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-          child: Icon(Icons.event_rounded, color: c, size: 24)),
+            child: Icon(Icons.event_rounded, color: c, size: 24)),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(event.title, style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14, color: AppTheme.ink900)),
@@ -182,7 +230,7 @@ class _ResourceMiniTile extends StatelessWidget {
     };
     return GestureDetector(
       onTap: () => Navigator.push(context,
-        MaterialPageRoute(builder: (_) => ResourceDetailScreen(resource: r))),
+          MaterialPageRoute(builder: (_) => ResourceDetailScreen(resource: r))),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -204,11 +252,11 @@ class _ResourceMiniTile extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(r.title,
-              style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink900),
-              maxLines: 1, overflow: TextOverflow.ellipsis),
+                style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.ink900),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Text('${r.subject}  •  ${r.type}  •  ${r.size}',
-              style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
+                style: GoogleFonts.inter(fontSize: 11, color: AppTheme.ink400)),
           ])),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -217,7 +265,7 @@ class _ResourceMiniTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(r.type,
-              style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: c)),
+                style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: c)),
           ),
           const SizedBox(width: 6),
           const Icon(Icons.chevron_right_rounded, color: AppTheme.ink400, size: 18),

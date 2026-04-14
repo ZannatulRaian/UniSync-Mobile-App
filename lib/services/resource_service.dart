@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/resource_model.dart';
 import 'supabase_client.dart';
 
@@ -8,14 +10,14 @@ class ResourceService {
   static const _allowedExts = ['pdf','doc','docx','ppt','pptx','jpg','jpeg','png'];
 
   Stream<List<Resource>> getResources({String? department, String? type}) {
-    // .stream() without .eq() works correctly with RLS — fetches all rows
-    // the authenticated user can see, then filters in Dart.
-    return supabase
-        .from('resources')
-        .stream(primaryKey: ['id'])
-        .order('uploaded_at', ascending: false)
-        .map((rows) {
-      var list = rows.map((r) => Resource.fromMap(r)).toList();
+    final controller = StreamController<List<Resource>>();
+
+    Future<List<Resource>> fetch() async {
+      final rows = await supabase
+          .from('resources')
+          .select()
+          .order('uploaded_at', ascending: false);
+      var list = (rows as List).map((r) => Resource.fromMap(r)).toList();
       if (department != null && department != 'All') {
         list = list.where((r) => r.department == department).toList();
       }
@@ -23,7 +25,39 @@ class ResourceService {
         list = list.where((r) => r.type == type).toList();
       }
       return list;
+    }
+
+    // Do initial fetch immediately — no loading->error flash on filter change
+    fetch().then((data) {
+      if (!controller.isClosed) controller.add(data);
+    }).catchError((e) {
+      if (!controller.isClosed) controller.addError(e);
     });
+
+    // Subscribe to realtime and re-fetch on any table change
+    final channelName = 'resources_${department ?? "all"}_${type ?? "all"}';
+    final channel = supabase.channel(channelName);
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'resources',
+      callback: (_) async {
+        if (!controller.isClosed) {
+          try {
+            controller.add(await fetch());
+          } catch (e) {
+            if (!controller.isClosed) controller.addError(e);
+          }
+        }
+      },
+    ).subscribe();
+
+    controller.onCancel = () {
+      supabase.removeChannel(channel);
+      controller.close();
+    };
+
+    return controller.stream;
   }
 
   Future<void> uploadResource({
@@ -33,21 +67,16 @@ class ResourceService {
     required String type, required String uploadedBy,
     required String uploadedById,
   }) async {
-    // SECURITY: validate file size
     final bytes = await file.readAsBytes();
     if (bytes.length > _maxFileSizeBytes) {
       throw Exception('File too large. Maximum size is 10 MB.');
     }
-
-    // SECURITY: validate file extension
     final ext = p.extension(file.path).toLowerCase().replaceAll('.', '');
     if (!_allowedExts.contains(ext)) {
       throw Exception('File type not allowed. Use PDF, DOCX, PPT, or image files.');
     }
-
     if (title.trim().isEmpty) throw Exception('Title required');
 
-    // Use UUID from server (gen_random_uuid) via DB insert
     final storagePath = 'resources/$uploadedById/${DateTime.now().millisecondsSinceEpoch}.$ext';
     final sizeKB = (bytes.length / 1024).toStringAsFixed(0);
 
@@ -64,7 +93,7 @@ class ResourceService {
       'semester':       semester,
       'type':           type.toUpperCase(),
       'file_url':       url,
-      'storage_path':   storagePath,   // store path for deletion
+      'storage_path':   storagePath,
       'size':           '$sizeKB KB',
       'uploaded_by':    uploadedBy,
       'uploaded_by_id': uploadedById,
@@ -72,7 +101,6 @@ class ResourceService {
     });
   }
 
-  // Atomic increment via RPC
   Future<void> incrementDownloads(String id) async {
     await supabase.rpc('increment_downloads', params: {'resource_id': id});
   }
