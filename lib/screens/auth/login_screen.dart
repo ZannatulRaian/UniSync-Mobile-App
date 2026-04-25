@@ -5,6 +5,7 @@ import '../../theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../dashboard/main_dashboard.dart';
 import '../onboarding/onboarding_screen.dart';
 
@@ -29,6 +30,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final user = await ref.read(authServiceProvider).signIn(_emailCtrl.text.trim(), _passCtrl.text);
       ref.read(currentUserProvider.notifier).update(user);
       ref.read(chatServiceProvider).joinPresence(user.uid, user.name);
+      // Upload OneSignal token now that user is authenticated
+      await NotificationService.instance.uploadPendingToken();
       if (!mounted) return;
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainDashboard()));
     } catch (e) {

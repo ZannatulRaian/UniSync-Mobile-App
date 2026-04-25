@@ -6,34 +6,47 @@ class ChatRoom {
   final bool isGroup;
   final List<String> memberIds;
   final List<String> memberNames;
+
+  // FIX: stores each member's photo URL (parallel to memberIds/memberNames).
+  // Populated at runtime by ChatService — not stored in the DB, so it's
+  // always up-to-date even after a member changes their profile picture.
+  final List<String?> memberPhotoUrls;
+
   final String avatarColor;
   int unreadCount;
 
   ChatRoom({
-    required this.id, required this.name, required this.lastMessage,
-    required this.lastMessageTime, required this.isGroup,
-    required this.memberIds, required this.memberNames,
-    required this.avatarColor, this.unreadCount = 0,
-  });
+    required this.id,
+    required this.name,
+    required this.lastMessage,
+    required this.lastMessageTime,
+    required this.isGroup,
+    required this.memberIds,
+    required this.memberNames,
+    List<String?>? memberPhotoUrls,
+    required this.avatarColor,
+    this.unreadCount = 0,
+  }) : memberPhotoUrls = memberPhotoUrls ?? [];
 
   factory ChatRoom.fromMap(Map<String, dynamic> d) => ChatRoom(
     id:              d['id'],
     name:            d['name'] ?? '',
     lastMessage:     d['last_message'] ?? '',
-    lastMessageTime: DateTime.parse(d['last_message_time'] ?? DateTime.now().toIso8601String()),
+    lastMessageTime: DateTime.parse(
+        d['last_message_time'] ?? DateTime.now().toIso8601String()),
     isGroup:         d['is_group'] ?? false,
     memberIds:       List<String>.from(d['member_ids'] ?? []),
     memberNames:     List<String>.from(d['member_names'] ?? []),
+    // memberPhotoUrls is not in DB — populated separately by ChatService
+    memberPhotoUrls: [],
     avatarColor:     d['avatar_color'] ?? '1A56DB',
   );
 
   /// For DMs returns the OTHER person's name; for groups returns the group name.
   String displayName(String currentUserId) {
     if (isGroup) return name;
-    // Find the index of the current user in memberIds, return the other name
     final idx = memberIds.indexOf(currentUserId);
-    if (idx == -1) return name; // fallback
-    // Return first name that isn't at currentUser's index
+    if (idx == -1) return name;
     for (var i = 0; i < memberNames.length; i++) {
       if (i != idx) return memberNames[i];
     }
@@ -44,6 +57,17 @@ class ChatRoom {
   String displayInitial(String currentUserId) {
     final n = displayName(currentUserId);
     return n.isNotEmpty ? n[0].toUpperCase() : '?';
+  }
+
+  /// Returns the OTHER person's photo URL for DMs, null for groups.
+  String? displayPhotoUrl(String currentUserId) {
+    if (isGroup || memberPhotoUrls.isEmpty) return null;
+    final idx = memberIds.indexOf(currentUserId);
+    if (idx == -1) return null;
+    for (var i = 0; i < memberPhotoUrls.length; i++) {
+      if (i != idx) return memberPhotoUrls[i];
+    }
+    return null;
   }
 
   Map<String, dynamic> toMap() => {

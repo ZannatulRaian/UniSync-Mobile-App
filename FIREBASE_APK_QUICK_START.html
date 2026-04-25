@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase + APK Build - Quick Start</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ffffff;
+            padding: 40px;
+            line-height: 1.8;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #dc2626;
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        .box {
+            background-color: #f0f4ff;
+            border-left: 4px solid #1a56db;
+            padding: 25px;
+            margin: 30px 0;
+            border-radius: 8px;
+        }
+        
+        .box h2 {
+            color: #1a56db;
+            margin-bottom: 15px;
+        }
+        
+        .step-number {
+            display: inline-block;
+            background-color: #1a56db;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 40px;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+        
+        .action {
+            background-color: #dbeafe;
+            border: 1px solid #3b82f6;
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 4px;
+            font-weight: 500;
+            color: #1e40af;
+        }
+        
+        .code {
+            background-color: #f5f5f5;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+        
+        .success {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            color: #065f46;
+            font-weight: 500;
+        }
+        
+        .important {
+            background-color: #ffe4e6;
+            border-left: 4px solid #f43f5e;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        
+        .done {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        ol {
+            margin-left: 30px;
+        }
+        
+        li {
+            margin-bottom: 10px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        table th {
+            background-color: #1a56db;
+            color: white;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        table td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Firebase + APK Build</h1>
+        <p class="subtitle">Complete Setup in 6 Steps</p>
+        
+        <div class="success">
+            ✅ Project Updated!<br>
+            Firebase dependencies added to your project<br>
+            Ready to build APK
+        </div>
+        
+        <!-- STEP 1 -->
+        <div class="box">
+            <h2><span class="step-number">1</span>Get google-services.json from Firebase</h2>
+            
+            <ol>
+                <li>Go to: <strong>https://console.firebase.google.com</strong></li>
+                <li>Select your <strong>UniSync</strong> project</li>
+                <li>Click gear icon ⚙️ → <strong>Project Settings</strong></li>
+                <li>Go to <strong>"Your apps"</strong> section</li>
+                <li>Find Android app → Click download icon</li>
+                <li>Save <strong>google-services.json</strong> to your computer</li>
+            </ol>
+            
+            <div class="important">
+                ⚠️ IMPORTANT: This is NOT the Service Account JSON<br>
+                Download the google-services.json specifically for Android
+            </div>
+        </div>
+        
+        <!-- STEP 2 -->
+        <div class="box">
+            <h2><span class="step-number">2</span>Place google-services.json in Project</h2>
+            
+            <p>Copy the downloaded file to this exact location:</p>
+            
+            <div class="code">
+unisync/android/app/google-services.json
+            </div>
+            
+            <div class="action">
+                Right-click google-services.json → Copy<br>
+                Navigate to: unisync/android/app/<br>
+                Right-click → Paste
+            </div>
+        </div>
+        
+        <!-- STEP 3 -->
+        <div class="box">
+            <h2><span class="step-number">3</span>Update .env File</h2>
+            
+            <p>Open the <strong>.env</strong> file in project root</p>
+            <p>Add this line:</p>
+            
+            <div class="code">
+ONESIGNAL_APP_ID=your-app-id-from-onesignal
+            </div>
+            
+            <p>Replace with your actual OneSignal App ID from OneSignal dashboard</p>
+            
+            <div class="action">Save the file</div>
+        </div>
+        
+        <!-- STEP 4 -->
+        <div class="box">
+            <h2><span class="step-number">4</span>Clean & Get Dependencies</h2>
+            
+            <p>Open Terminal/Command Prompt in project root</p>
+            
+            <div class="code">
+flutter clean
+flutter pub get
+            </div>
+            
+            <p>Wait for it to complete...</p>
+        </div>
+        
+        <!-- STEP 5 -->
+        <div class="box">
+            <h2><span class="step-number">5</span>Build the APK</h2>
+            
+            <p>Run these commands in order:</p>
+            
+            <div class="code">
+dart run build_runner build --delete-conflicting-outputs
+flutter build apk --release
+            </div>
+            
+            <p>⏳ First build takes 5-10 minutes. Please wait...</p>
+            
+            <div class="success">
+                ✅ When complete, you'll see:<br>
+                "✓ Built build/app/outputs/apk/release/app-release.apk"
+            </div>
+        </div>
+        
+        <!-- STEP 6 -->
+        <div class="box">
+            <h2><span class="step-number">6</span>Find & Test Your APK</h2>
+            
+            <p>Your APK file is here:</p>
+            
+            <div class="code">
+build/app/outputs/apk/release/app-release.apk
+            </div>
+            
+            <p><strong>To install on phone:</strong></p>
+            <ol>
+                <li>Copy APK to your phone</li>
+                <li>Tap to install</li>
+                <li>Allow "Unknown sources" if prompted</li>
+                <li>Launch app → Tap "Allow" for notifications</li>
+                <li>Test by creating an announcement</li>
+            </ol>
+            
+            <div class="success">
+                ✅ SUCCESS: You'll get a push notification!
+            </div>
+        </div>
+        
+        <!-- WHAT CHANGED -->
+        <div class="box">
+            <h2>What Changed in Your Project?</h2>
+            
+            <table>
+                <tr>
+                    <th>File</th>
+                    <th>Change</th>
+                </tr>
+                <tr>
+                    <td><strong>pubspec.yaml</strong></td>
+                    <td>Added firebase_core & firebase_messaging</td>
+                </tr>
+                <tr>
+                    <td><strong>android/build.gradle</strong></td>
+                    <td>Added Google Services plugin</td>
+                </tr>
+                <tr>
+                    <td><strong>android/app/build.gradle</strong></td>
+                    <td>Added Firebase dependencies</td>
+                </tr>
+                <tr>
+                    <td><strong>android/app/google-services.json</strong></td>
+                    <td>Template file (you add your own)</td>
+                </tr>
+            </table>
+        </div>
+        
+        <!-- TROUBLESHOOTING -->
+        <div class="box">
+            <h2>Troubleshooting</h2>
+            
+            <p><strong>❌ "Could not find google-services.json"</strong></p>
+            <div class="action">
+                Check: Is file at <code>android/app/google-services.json</code>?<br>
+                Run: <code>flutter clean</code><br>
+                Then: <code>flutter pub get</code>
+            </div>
+            
+            <p style="margin-top: 15px;"><strong>❌ Build is very slow</strong></p>
+            <div class="action">
+                First build is slow (downloads dependencies)<br>
+                Wait 5-10 minutes<br>
+                Next builds will be faster
+            </div>
+            
+            <p style="margin-top: 15px;"><strong>❌ "Gradle build failed"</strong></p>
+            <div class="action">
+                flutter clean<br>
+                flutter pub get<br>
+                dart run build_runner build --delete-conflicting-outputs<br>
+                flutter build apk --release
+            </div>
+        </div>
+        
+        <div class="done">
+            <h2 style="font-size: 2em; margin-bottom: 15px;">🚀 Ready to Build!</h2>
+            <p style="font-size: 1.1em;">
+                Your project is fully updated with Firebase<br>
+                Follow the 6 steps above to build your APK<br>
+                <br>
+                <strong>Total time: 15-20 minutes</strong><br>
+                (Mostly waiting for Gradle to finish)
+            </p>
+        </div>
+    </div>
+</body>
+</html>

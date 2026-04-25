@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -9,20 +10,31 @@ import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'providers/chat_provider.dart';
 import 'screens/dashboard/main_dashboard.dart';
+import 'services/local_database_service.dart';
+import 'services/connectivity_service.dart';
+import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Load .env — keys never touch source control
   await dotenv.load(fileName: '.env');
 
+  // Firebase MUST be initialized before OneSignal (OneSignal uses FCM internally)
+  await Firebase.initializeApp();
+
+  await LocalDatabaseService.initialize();
+  await ConnectivityService().initialize();
+
   await Supabase.initialize(
-    url:     dotenv.env['SUPABASE_URL']!,
+    url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
-    realtimeClientOptions: const RealtimeClientOptions(
-      eventsPerSecond: 10,
-    ),
+    realtimeClientOptions: const RealtimeClientOptions(eventsPerSecond: 10),
+  );
+
+  // Initialize OneSignal push notifications
+  await NotificationService.instance.initialize(
+    dotenv.env['ONESIGNAL_APP_ID']!,
   );
 
   runApp(const ProviderScope(child: UniSyncApp()));
@@ -45,7 +57,8 @@ class UniSyncApp extends ConsumerWidget {
 
 class _AuthGate extends ConsumerStatefulWidget {
   const _AuthGate();
-  @override ConsumerState<_AuthGate> createState() => _AuthGateState();
+  @override
+  ConsumerState<_AuthGate> createState() => _AuthGateState();
 }
 
 class _AuthGateState extends ConsumerState<_AuthGate> {
@@ -61,6 +74,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
         final user = ref.read(currentUserProvider);
         if (user != null) {
           ref.read(chatServiceProvider).joinPresence(user.uid, user.name);
+          await NotificationService.instance.uploadPendingToken();
         }
       });
     }
@@ -69,10 +83,10 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
-
     return authState.when(
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error:   (_, __) => const LoginScreen(),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (_, __) => const LoginScreen(),
       data: (state) {
         if (state.session != null) return const MainDashboard();
         if (_onboarded) return const LoginScreen();

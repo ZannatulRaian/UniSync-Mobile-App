@@ -1,8 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/resource_service.dart';
 import '../models/resource_model.dart';
+import 'connectivity_provider.dart';
 
-final resourceServiceProvider = Provider((_) => ResourceService());
+final resourceServiceProvider = Provider<ResourceService>((ref) {
+  final db = ref.watch(localDatabaseProvider);
+  final connectivity = ref.watch(connectivityServiceProvider);
+  return ResourceService(db, connectivity);
+});
 
 class ResourceFilter {
   final String? dept;

@@ -2,6 +2,7 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"  // Firebase plugin
 }
 
 android {
@@ -20,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId "com.unisync.unisync"
-        minSdk 26           // Android 8.0 — minimum for all Pixel 7 supported OS versions
+        minSdk 31           // Android 8.0 — minimum for all Pixel 7 supported OS versions
         targetSdk 34        // Android 14 — Pixel 7 target (compileSdk >= targetSdk is fine)
         versionCode flutter.versionCode
         versionName flutter.versionName
@@ -37,6 +38,12 @@ android {
 
 flutter {
     source "../.."
+}
+
+dependencies {
+    // Firebase (required for push notifications with OneSignal)
+    implementation platform('com.google.firebase:firebase-bom:33.0.0')
+    implementation 'com.google.firebase:firebase-messaging'
 }
 
 // No explicit kotlin-stdlib needed — Kotlin 2.1 bundles it automatically
