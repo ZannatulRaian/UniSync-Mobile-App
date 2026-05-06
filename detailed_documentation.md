@@ -136,7 +136,7 @@ Announcement Object: {
    - Automatic reconnection
 
 3. **Data Sync Flow**:
-   <img src="screenshots/4.png" width="250"/>
+   **<img src="screenshots/4.png" width="250"/>**
 
 **Features**:
 - Type-based filtering (Academic, Administrative, General, Other)
