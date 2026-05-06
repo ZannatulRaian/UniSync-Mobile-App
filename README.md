@@ -220,19 +220,6 @@ Verify the Supabase **URL** and **Anon Key** in `main.dart`.
 
 ---
 
-# Contribution
-
-Contributions are welcome.
-
-Steps:
-
-1. Fork the repository
-2. Create a new branch
-3. Make your changes
-4. Submit a Pull Request
-
----
-
 # License
 
 This project is for **educational and academic purposes**.
