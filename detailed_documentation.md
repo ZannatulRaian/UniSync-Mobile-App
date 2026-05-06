@@ -136,8 +136,9 @@ Announcement Object: {
    - Automatic reconnection
 
 3. **Data Sync Flow**:
-   **<img src="screenshots/4.png" width="250"/>**
-
+   <p>
+   <img src="screenshots/4.png" width="250"/>
+   </p>
 **Features**:
 - Type-based filtering (Academic, Administrative, General, Other)
 - Department-specific announcements
@@ -200,8 +201,9 @@ Response: { messageId: UUID, sentAt: timestamp }
 - Message history pagination
 
 **Data Flow**:
+<p>
 <img src="screenshots/1.png" width="250"/>
-
+</p>
 
 **Example Usage**:
 ```dart
@@ -413,10 +415,14 @@ await notificationService.subscribeToTopic("user_${userId}");
 ### 7. Offline-First Architecture
 
 **Three-Tier Data Strategy**:
+<p>
 <img src="screenshots/2.png" width="250"/>
+</p>
 
 **Offline Message Queue**:
+<p>
 <img src="screenshots/3.png" width="250"/>
+</p>
 
 **Cache Strategy**:
 - Load cached data immediately (< 50ms)
