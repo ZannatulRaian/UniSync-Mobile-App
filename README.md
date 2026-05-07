@@ -26,11 +26,9 @@
   <img src="screenshots/home.jpeg" width="250"/>
   <img src="screenshots/chat.jpeg" width="250"/>
   <img src="screenshots/events.jpeg" width="250"/>
-  <img src="screenshots/resource.jpeg" width="250"/>
-  <img src="screenshots/profile.jpeg" width="250"/>
 </p>
 <p align="center">
-  <i>Home Screen &nbsp;•&nbsp; Chat System &nbsp;•&nbsp; Events Dashboard &nbsp;•&nbsp; User Profile &nbsp;•&nbsp; Resources</i>
+  <i>Home Screen &nbsp;•&nbsp; Chat System &nbsp;•&nbsp; Events Dashboard</i>
 </p>
 <p align="center">
   <img src="screenshots/resource.jpeg" width="250"/>
