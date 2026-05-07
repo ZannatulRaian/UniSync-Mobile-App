@@ -15,6 +15,7 @@ class Resource {
   final String uploadedById;
   final DateTime uploadedAt;
   final String iconColor;
+  final bool isBookmarked; // NEW: Track bookmark status
 
   const Resource({
     required this.id, required this.title, required this.subject,
@@ -24,6 +25,7 @@ class Resource {
     this.rating = 0.0, this.ratingCount = 0,
     required this.uploadedBy, required this.uploadedById,
     required this.uploadedAt, required this.iconColor,
+    this.isBookmarked = false, // NEW: Default to not bookmarked
   });
 
   factory Resource.fromMap(Map<String, dynamic> d) => Resource(
@@ -43,5 +45,6 @@ class Resource {
     uploadedById: d['uploaded_by_id'] ?? '',
     uploadedAt:   DateTime.tryParse(d['uploaded_at'] ?? '') ?? DateTime.now(),
     iconColor:    d['icon_color'] ?? '1A56DB',
+    isBookmarked: d['is_bookmarked'] ?? false, // NEW: Parse from map
   );
 }

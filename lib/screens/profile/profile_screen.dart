@@ -18,10 +18,20 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    if (user == null) return const Center(child: CircularProgressIndicator());
 
-    // FIX: Cache-bust the avatar URL so the updated photo loads immediately
-    // after upload without requiring an app restart.
+    // FIX: Show proper loading state instead of spinner that never resolves
+    if (user == null) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: AppTheme.primary,
+          title: Text('Profile',
+              style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final avatarUrl = (user.photoUrl != null && user.photoUrl!.isNotEmpty)
         ? Uri.parse(user.photoUrl!).replace(
             queryParameters: {'v': user.photoUrl.hashCode.toString()}).toString()
@@ -42,12 +52,16 @@ class ProfileScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.white),
             onPressed: () async {
-              await ref.read(authServiceProvider).signOut();
+              // FIX: sign out in correct order — clear state first, then navigate
               ref.read(chatServiceProvider).leavePresence();
               ref.read(currentUserProvider.notifier).clear();
+              await ref.read(authServiceProvider).signOut();
               if (!context.mounted) return;
-              Navigator.pushAndRemoveUntil(context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (_) => false,
+              );
             },
           ),
         ],
@@ -78,7 +92,7 @@ class ProfileScreen extends ConsumerWidget {
                 backgroundColor: AppTheme.primaryLight,
                 backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
                 child: avatarUrl == null
-                    ? Text(user.name[0].toUpperCase(),
+                    ? Text(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
                         style: GoogleFonts.poppins(
                             fontSize: 40, fontWeight: FontWeight.w700, color: AppTheme.primary))
                     : null,
@@ -132,8 +146,9 @@ class ProfileScreen extends ConsumerWidget {
                 Text('No bookmarks yet',
                     style: GoogleFonts.inter(color: AppTheme.ink400, fontSize: 13))
               else
+                // FIX: use 'All' not null so it matches the cached provider key
                 Consumer(builder: (ctx, ref2, _) {
-                  final ann = ref2.watch(announcementsStreamProvider(null));
+                  final ann = ref2.watch(announcementsStreamProvider('All'));
                   return ann.when(
                     loading: () => const CircularProgressIndicator(),
                     error: (_, __) => const SizedBox(),
@@ -141,6 +156,10 @@ class ProfileScreen extends ConsumerWidget {
                       final bookmarked = list
                           .where((a) => user.bookmarkedAnnouncements.contains(a.id))
                           .toList();
+                      if (bookmarked.isEmpty) {
+                        return Text('No bookmarks yet',
+                            style: GoogleFonts.inter(color: AppTheme.ink400, fontSize: 13));
+                      }
                       return Column(children: bookmarked.map((a) => ListTile(
                         dense: true, contentPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.bookmark_rounded, color: AppTheme.primary, size: 18),

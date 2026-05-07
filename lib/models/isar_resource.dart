@@ -25,6 +25,7 @@ class IsarResource {
   late String iconColor;
   late DateTime cachedAt;
   late bool isDeleted;
+  late bool isBookmarked; // NEW: Track bookmarked status
   
   IsarResource({
     this.id,
@@ -46,6 +47,7 @@ class IsarResource {
     required this.iconColor,
     required this.cachedAt,
     this.isDeleted = false,
+    this.isBookmarked = false, // NEW: Default to not bookmarked
   });
 
   factory IsarResource.fromResource(Resource r) => IsarResource(
@@ -66,6 +68,7 @@ class IsarResource {
     uploadedAt: r.uploadedAt,
     iconColor: r.iconColor,
     cachedAt: DateTime.now(),
+    isBookmarked: r.isBookmarked, // NEW: Preserve bookmark status
   );
 
   Resource toResource() => Resource(
@@ -85,6 +88,7 @@ class IsarResource {
     uploadedById: uploadedById,
     uploadedAt: uploadedAt,
     iconColor: iconColor,
+    isBookmarked: isBookmarked, // NEW: Convert back to Resource
   );
 
   Map<String, dynamic> toMap() => {
@@ -104,5 +108,6 @@ class IsarResource {
     'uploaded_by_id': uploadedById,
     'uploaded_at': uploadedAt.toIso8601String(),
     'icon_color': iconColor,
+    'is_bookmarked': isBookmarked, // NEW: Include bookmark in map
   };
 }

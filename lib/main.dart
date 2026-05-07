@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
@@ -24,7 +25,8 @@ Future<void> main() async {
   await Firebase.initializeApp();
 
   await LocalDatabaseService.initialize();
-  await ConnectivityService().initialize();
+  final connectivityService = ConnectivityService();
+  await connectivityService.initialize();
 
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
@@ -36,6 +38,10 @@ Future<void> main() async {
   await NotificationService.instance.initialize(
     dotenv.env['ONESIGNAL_APP_ID']!,
   );
+
+  connectivityService.onConnectionRestored = () async {
+    print('🔄 Syncing data now that connection is restored...');
+  };
 
   runApp(const ProviderScope(child: UniSyncApp()));
 }
@@ -62,11 +68,15 @@ class _AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<_AuthGate> {
+  // FIX: Persist onboarding state so sign-out goes to Login not Onboarding
   bool _onboarded = false;
+  bool _checkingOnboarded = true;
 
   @override
   void initState() {
     super.initState();
+    _loadOnboardedFlag();
+
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {
       Future.microtask(() async {
@@ -80,8 +90,29 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
     }
   }
 
+  Future<void> _loadOnboardedFlag() async {
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool('onboarding_done') ?? false;
+    if (mounted) {
+      setState(() {
+        _onboarded = done;
+        _checkingOnboarded = false;
+      });
+    }
+  }
+
+  Future<void> _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_done', true);
+    if (mounted) setState(() => _onboarded = true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_checkingOnboarded) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final authState = ref.watch(authStateProvider);
     return authState.when(
       loading: () =>
@@ -89,10 +120,9 @@ class _AuthGateState extends ConsumerState<_AuthGate> {
       error: (_, __) => const LoginScreen(),
       data: (state) {
         if (state.session != null) return const MainDashboard();
+        // FIX: once onboarded (persisted), always go to login — not onboarding
         if (_onboarded) return const LoginScreen();
-        return OnboardingScreen(
-          onDone: () => setState(() => _onboarded = true),
-        );
+        return OnboardingScreen(onDone: _completeOnboarding);
       },
     );
   }

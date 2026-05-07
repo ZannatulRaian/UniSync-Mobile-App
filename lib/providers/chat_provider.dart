@@ -9,15 +9,18 @@ final chatServiceProvider = Provider<ChatService>((ref) {
   return ChatService(db, connectivity);
 });
 
-// autoDispose ensures the stream is cancelled when leaving the chat tab,
-// preventing stale listeners from stacking up and causing duplicate rooms.
+// FIX: autoDispose prevents stale listeners stacking up across tab switches.
+// family<> key is userId — when userId is empty string we return empty list
+// so the UI never crashes while user is loading.
 final chatRoomsProvider =
     StreamProvider.autoDispose.family<List<ChatRoom>, String>((ref, userId) {
+  if (userId.isEmpty) return Stream.value([]);
   return ref.watch(chatServiceProvider).getRoomsWithUnread(userId);
 });
 
 final chatMessagesProvider =
     StreamProvider.autoDispose.family<List<ChatMessage>, String>((ref, roomId) {
+  if (roomId.isEmpty) return Stream.value([]);
   return ref.watch(chatServiceProvider).getMessages(roomId);
 });
 

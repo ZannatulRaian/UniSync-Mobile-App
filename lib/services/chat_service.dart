@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/chat_model.dart';
@@ -16,54 +17,87 @@ class ChatService {
 
   ChatService(this._db, this._connectivity);
 
-  // ── Base room stream (no photo enrichment) ─────────────────────────────────
-  Stream<List<ChatRoom>> getRooms(String userId) async* {
-    // Yield cached rooms first
-    final cached = await _db.getCachedChatRooms();
-    final filtered = cached
-        .where((r) => r.memberIds.contains(userId))
-        .map((r) => r.toChatRoom())
-        .toList();
-    yield filtered;
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
-    // If online, fetch fresh data
-    if (_connectivity.isOnline) {
+  List<T> _dedupe<T>(List<T> items, String Function(T) idOf) {
+    final seen = <String>{};
+    return items.where((i) => seen.add(idOf(i))).toList();
+  }
+
+  // ── Base room stream ───────────────────────────────────────────────────────
+  // Uses select() + realtime subscription instead of .stream() because
+  // .stream() requires a stable WebSocket that can fail on real devices
+  // behind carrier NAT / firewalls — causing infinite shimmer loading.
+  Stream<List<ChatRoom>> getRooms(String userId) {
+    final controller = StreamController<List<ChatRoom>>.broadcast();
+
+    Future<void> _run() async {
+      if (userId.isEmpty) {
+        if (!controller.isClosed) controller.add([]);
+        return;
+      }
+
+      // Step 1 — emit cache immediately (works offline too)
       try {
-        await for (final rows in supabase
-            .from('chat_rooms')
-            .stream(primaryKey: ['id'])
-            .order('last_message_time', ascending: false)) {
-          
-          final list = rows
+        final cached = await _db.getCachedChatRooms();
+        final filtered = cached
+            .where((r) => r.memberIds.contains(userId))
+            .map((r) => r.toChatRoom())
+            .toList();
+        if (!controller.isClosed) {
+          controller.add(_dedupe(filtered, (r) => r.id));
+        }
+      } catch (e) {
+        print('Error loading cached rooms: $e');
+      }
+
+      if (!_connectivity.isOnline) return;
+
+      // Step 2 — fetch fresh data with a regular HTTP select()
+      Future<void> _fetchAndEmit() async {
+        try {
+          final rows = await supabase
+              .from('chat_rooms')
+              .select()
+              .order('last_message_time', ascending: false)
+              .timeout(const Duration(seconds: 10));
+
+          final list = (rows as List)
               .map((r) => ChatRoom.fromMap(r))
               .where((r) => r.memberIds.contains(userId))
               .toList();
+          final deduped = _dedupe(list, (r) => r.id);
 
-          // DEDUPLICATE by ID (fix for duplicate rooms)
-          final seen = <String>{};
-          final deduped = <ChatRoom>[];
-          for (final room in list) {
-            if (!seen.contains(room.id)) {
-              seen.add(room.id);
-              deduped.add(room);
-            }
-          }
-
-          // Cache the fresh data
-          final isarRooms = deduped
-              .map((r) => IsarChatRoom.fromChatRoom(r))
-              .toList();
+          final isarRooms =
+              deduped.map((r) => IsarChatRoom.fromChatRoom(r)).toList();
           await _db.cacheChatRooms(isarRooms);
 
-          yield deduped;
+          if (!controller.isClosed) controller.add(deduped);
+        } catch (e) {
+          print('Error fetching rooms: $e');
+          // Don't add error — cached data is already showing
         }
-      } catch (e) {
-        print('Error fetching rooms: $e');
       }
+
+      await _fetchAndEmit();
+
+      // Step 3 — subscribe to realtime changes and re-fetch on any change
+      supabase
+          .channel('chat_rooms_$userId')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'chat_rooms',
+            callback: (_) => _fetchAndEmit(),
+          )
+          .subscribe();
     }
+
+    _run();
+    return controller.stream;
   }
 
-  // ── Fetch photo URLs for every member from the users table ─────────────
+  // ── Fetch photo URLs for every member ─────────────────────────────────────
   Future<Map<String, String?>> _fetchMemberPhotos(
       List<ChatRoom> rooms) async {
     final allIds = <String>{};
@@ -86,24 +120,21 @@ class ChatService {
     }
   }
 
-  // ── Enrich a list of rooms with live photo URLs ────────────────────────────
   Future<List<ChatRoom>> _enrichWithPhotos(List<ChatRoom> rooms) async {
     final photoMap = await _fetchMemberPhotos(rooms);
     return rooms.map((room) {
-      final urls = room.memberIds
-          .map((id) => photoMap[id])
-          .toList();
+      final urls = room.memberIds.map((id) => photoMap[id]).toList();
       return ChatRoom(
-        id: room.id,
-        name: room.name,
-        lastMessage: room.lastMessage,
-        lastMessageTime: room.lastMessageTime,
-        isGroup: room.isGroup,
-        memberIds: room.memberIds,
-        memberNames: room.memberNames,
-        memberPhotoUrls: urls,
-        avatarColor: room.avatarColor,
-        unreadCount: room.unreadCount,
+        id:               room.id,
+        name:             room.name,
+        lastMessage:      room.lastMessage,
+        lastMessageTime:  room.lastMessageTime,
+        isGroup:          room.isGroup,
+        memberIds:        room.memberIds,
+        memberNames:      room.memberNames,
+        memberPhotoUrls:  urls,
+        avatarColor:      room.avatarColor,
+        unreadCount:      room.unreadCount,
       );
     }).toList();
   }
@@ -113,7 +144,7 @@ class ChatService {
     final controller = StreamController<List<ChatMessage>>.broadcast();
 
     Future<void> _run() async {
-      // Emit cached messages first
+      // Emit cached messages first (includes optimistic pending_ ones)
       try {
         final cached = await _db.getCachedMessages(roomId);
         if (!controller.isClosed) {
@@ -123,64 +154,72 @@ class ChatService {
         print('Error loading cached messages: $e');
       }
 
-      // If online, fetch and sync messages
-      if (_connectivity.isOnline) {
-        try {
-          final rows = await supabase
-              .from('chat_messages')
-              .select()
-              .eq('room_id', roomId)
-              .order('created_at', ascending: true);
+      if (!_connectivity.isOnline) return;
 
-          final messages = (rows as List)
-              .map((r) => ChatMessage.fromMap(r))
-              .toList();
+      try {
+        final rows = await supabase
+            .from('chat_messages')
+            .select()
+            .eq('room_id', roomId)
+            .order('created_at', ascending: true);
 
-          // Cache the fresh data
-          final isarMessages =
-              messages.map((m) => IsarChatMessage.fromChatMessage(m)).toList();
-          await _db.cacheMessages(isarMessages);
+        final messages =
+            (rows as List).map((r) => ChatMessage.fromMap(r)).toList();
 
-          if (!controller.isClosed) controller.add(messages);
+        // Replace any optimistic pending_ messages with real ones
+        final isarMessages =
+            messages.map((m) => IsarChatMessage.fromChatMessage(m)).toList();
+        await _db.cacheMessages(isarMessages);
 
-          // Setup realtime subscription — use controller.add instead of yield
-          supabase
-              .channel('room_$roomId')
-              .onPostgresChanges(
-                event: PostgresChangeEvent.insert,
-                schema: 'public',
-                table: 'chat_messages',
-                filter: PostgresChangeFilter(
-                  type: PostgresChangeFilterType.eq,
-                  column: 'room_id',
-                  value: roomId,
-                ),
-                callback: (payload) async {
-                  try {
-                    final msg = ChatMessage.fromMap(payload.newRecord);
+        // Clean up any pending_ messages for this room that are now on the server
+        await _removeSyncedOptimisticMessages(roomId, messages);
 
-                    // Cache the new message
-                    final isarMsg = IsarChatMessage.fromChatMessage(msg);
-                    await _db.cacheMessages([isarMsg]);
+        if (!controller.isClosed) controller.add(messages);
 
-                    // Emit updated list
-                    final updated = await _db.getCachedMessages(roomId);
-                    if (!controller.isClosed) {
-                      controller.add(updated.map((m) => m.toChatMessage()).toList());
-                    }
-                  } catch (_) {}
-                },
-              )
-              .subscribe();
-        } catch (e) {
-          print('Error fetching messages: $e');
-          if (!controller.isClosed) controller.addError(e);
-        }
+        // Realtime subscription
+        supabase
+            .channel('room_$roomId')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.insert,
+              schema: 'public',
+              table: 'chat_messages',
+              filter: PostgresChangeFilter(
+                type:   PostgresChangeFilterType.eq,
+                column: 'room_id',
+                value:  roomId,
+              ),
+              callback: (payload) async {
+                try {
+                  final msg = ChatMessage.fromMap(payload.newRecord);
+                  final isarMsg = IsarChatMessage.fromChatMessage(msg);
+                  await _db.cacheMessages([isarMsg]);
+
+                  final updated = await _db.getCachedMessages(roomId);
+                  if (!controller.isClosed) {
+                    controller
+                        .add(updated.map((m) => m.toChatMessage()).toList());
+                  }
+                } catch (_) {}
+              },
+            )
+            .subscribe();
+      } catch (e) {
+        print('Error fetching messages: $e');
+        if (!controller.isClosed) controller.addError(e);
       }
     }
 
     _run();
     return controller.stream;
+  }
+
+  /// After reconnecting and fetching real server messages, remove optimistic
+  /// copies whose content already appears in the server results.
+  Future<void> _removeSyncedOptimisticMessages(
+      String roomId, List<ChatMessage> serverMessages) async {
+    final serverContents =
+        serverMessages.map((m) => m.content.trim()).toSet();
+    await _db.removeSyncedOptimisticMessages(roomId, serverContents);
   }
 
   // ── Create room ────────────────────────────────────────────────────────────
@@ -192,7 +231,8 @@ class ChatService {
     required String createdById,
   }) async {
     if (_connectivity.isOffline) {
-      throw Exception('Cannot create chat offline. Please check your connection.');
+      throw Exception(
+          'Cannot create a chat room while offline. Please check your connection.');
     }
 
     if (!isGroup && memberIds.length == 2) {
@@ -201,31 +241,33 @@ class ChatService {
           .select()
           .eq('is_group', false)
           .contains('member_ids', memberIds);
-      if (existing.isNotEmpty) {
+      if ((existing as List).isNotEmpty) {
         final room = ChatRoom.fromMap(existing.first);
         final enriched = await _enrichWithPhotos([room]);
         return enriched.first;
       }
     }
 
-    const colors = ['1A56DB', '0E9F6E', 'E3A008', '9061F9', 'E02424', '3F83F8'];
+    const colors = [
+      '1A56DB', '0E9F6E', 'E3A008', '9061F9', 'E02424', '3F83F8'
+    ];
     final color = colors[DateTime.now().millisecond % colors.length];
 
     final data = {
-      'name': name.trim(),
+      'name':         name.trim(),
       'last_message': '',
-      'is_group': isGroup,
-      'member_ids': memberIds,
+      'is_group':     isGroup,
+      'member_ids':   memberIds,
       'member_names': memberNames,
       'avatar_color': color,
     };
-    final res = await supabase.from('chat_rooms').insert(data).select().single();
+    final res =
+        await supabase.from('chat_rooms').insert(data).select().single();
     final room = ChatRoom.fromMap(res);
-    
-    // Cache the new room
+
     final isarRoom = IsarChatRoom.fromChatRoom(room);
     await _db.cacheChatRooms([isarRoom]);
-    
+
     final enriched = await _enrichWithPhotos([room]);
     return enriched.first;
   }
@@ -233,7 +275,8 @@ class ChatService {
   // ── Unread tracking ────────────────────────────────────────────────────────
   Future<void> markRoomAsRead(String roomId) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('last_seen_$roomId', DateTime.now().toIso8601String());
+    await prefs.setString(
+        'last_seen_$roomId', DateTime.now().toIso8601String());
   }
 
   Future<int> getUnreadCount(String roomId) async {
@@ -241,7 +284,7 @@ class ChatService {
       final prefs = await SharedPreferences.getInstance();
       final lastSeenStr = prefs.getString('last_seen_$roomId');
       final uid = supabase.auth.currentUser?.id ?? '';
-      
+
       if (_connectivity.isOnline) {
         if (lastSeenStr == null) {
           final rows = await supabase
@@ -258,7 +301,6 @@ class ChatService {
             .gt('created_at', lastSeen.toIso8601String());
         return (rows as List).where((r) => r['sender_id'] != uid).length;
       } else {
-        // Offline: use cached messages
         if (lastSeenStr == null) {
           final cached = await _db.getCachedMessages(roomId);
           return cached.where((m) => m.senderId != uid).length;
@@ -266,7 +308,8 @@ class ChatService {
         final lastSeen = DateTime.parse(lastSeenStr);
         final cached = await _db.getCachedMessages(roomId);
         return cached
-            .where((m) => m.senderId != uid && m.timestamp.isAfter(lastSeen))
+            .where((m) =>
+                m.senderId != uid && m.timestamp.isAfter(lastSeen))
             .length;
       }
     } catch (_) {
@@ -274,19 +317,16 @@ class ChatService {
     }
   }
 
-  // ── getRoomsWithUnread now also enriches with photo URLs ──────────────
+  // ── Rooms with unread + photo enrichment ──────────────────────────────────
   Stream<List<ChatRoom>> getRoomsWithUnread(String userId) {
     final controller = StreamController<List<ChatRoom>>.broadcast();
 
     Future<void> enrichRooms(List<ChatRoom> rooms) async {
-      // Deduplicate by room ID before any enrichment
-      final seen = <String>{};
-      final unique = <ChatRoom>[];
-      for (final room in rooms) {
-        if (seen.add(room.id)) unique.add(room);
-      }
+      final unique = _dedupe(rooms, (r) => r.id);
+      final withPhotos = _connectivity.isOnline
+          ? await _enrichWithPhotos(unique)
+          : unique;
 
-      final withPhotos = await _enrichWithPhotos(unique);
       final enriched = <ChatRoom>[];
       for (final room in withPhotos) {
         final count = await getUnreadCount(room.id);
@@ -308,11 +348,7 @@ class ChatService {
       },
     );
 
-    // Cancel the inner subscription when the outer stream is cancelled
-    controller.onCancel = () {
-      sub?.cancel();
-    };
-
+    controller.onCancel = () => sub?.cancel();
     return controller.stream;
   }
 
@@ -333,13 +369,17 @@ class ChatService {
         if (id != null) ids.add(id);
       }
     }
-    _onlineIds..clear()..addAll(ids);
-    if (!_onlineController.isClosed) _onlineController.add(Set.from(_onlineIds));
+    _onlineIds
+      ..clear()
+      ..addAll(ids);
+    if (!_onlineController.isClosed) {
+      _onlineController.add(Set.from(_onlineIds));
+    }
   }
 
   void joinPresence(String userId, String userName) {
-    if (_connectivity.isOffline) return; // Don't join presence when offline
-    
+    if (_connectivity.isOffline) return;
+
     leavePresence();
     _presenceChannel = supabase.channel('global_presence');
     _presenceChannel!
@@ -349,7 +389,8 @@ class ChatService {
         .subscribe((status, [error]) async {
       if (status == RealtimeSubscribeStatus.subscribed) {
         try {
-          await _presenceChannel!.track({'user_id': userId, 'name': userName});
+          await _presenceChannel!
+              .track({'user_id': userId, 'name': userName});
         } catch (_) {}
       }
     });
@@ -367,7 +408,11 @@ class ChatService {
 
   Stream<Set<String>> onlineUserIds() => onlineStream;
 
-  // ── Send message — works offline & syncs later ───────────────────────────────
+  // ── Send message ───────────────────────────────────────────────────────────
+  ///
+  /// **Online**: writes to Supabase immediately.
+  /// **Offline**: queues the send and inserts an optimistic local message
+  /// (prefixed `pending_`) so the UI shows it straight away.
   Future<void> sendMessage({
     required String roomId,
     required String senderId,
@@ -380,81 +425,75 @@ class ChatService {
         ? trimmed.substring(0, _maxMessageLength)
         : trimmed;
 
-    // Check room membership
-    if (_connectivity.isOnline) {
-      final roomCheck = await supabase
-          .from('chat_rooms')
-          .select('member_ids')
-          .eq('id', roomId)
-          .maybeSingle();
-      if (roomCheck == null) throw Exception('Chat room not found.');
-      final members = List<String>.from(roomCheck['member_ids'] ?? []);
-      if (!members.contains(senderId)) {
-        throw Exception('You are not a member of this chat.');
-      }
-    }
-
-    // If offline, cache message and sync later
     if (_connectivity.isOffline) {
-      final msg = ChatMessage(
-        id: 'pending_${DateTime.now().millisecondsSinceEpoch}',
-        roomId: roomId,
-        senderId: senderId,
+      final tempId =
+          'pending_${DateTime.now().millisecondsSinceEpoch}_$senderId';
+      final now = DateTime.now();
+
+      // Persist optimistic message locally so it shows in the UI
+      final optimistic = IsarChatMessage(
+        remoteId:   tempId,
+        roomId:     roomId,
+        senderId:   senderId,
         senderName: senderName,
-        content: safe,
-        timestamp: DateTime.now(),
+        content:    safe,
+        timestamp:  now,
+        cachedAt:   now,
       );
-      final isarMsg = IsarChatMessage.fromChatMessage(msg);
-      await _db.cacheMessages([isarMsg]);
-      print('Message queued offline — will send when online');
+      await _db.cacheMessages([optimistic]);
+
+      // Queue the actual network call
+      await _db.enqueuePendingAction(
+        actionType: 'send_message',
+        payloadJson: jsonEncode({
+          'room_id':      roomId,
+          'sender_id':    senderId,
+          'sender_name':  senderName,
+          'content':      safe,
+          'created_at':   now.toIso8601String(),
+          'local_temp_id': tempId,
+        }),
+        localTempId: tempId,
+      );
+
+      print('[ChatService] Message queued offline — will send when online');
       return;
     }
 
-    // Send to server
+    // ── Online: validate membership first ──────────────────────────────────
+    final roomCheck = await supabase
+        .from('chat_rooms')
+        .select('member_ids')
+        .eq('id', roomId)
+        .maybeSingle();
+    if (roomCheck == null) throw Exception('Chat room not found.');
+    final members = List<String>.from(roomCheck['member_ids'] ?? []);
+    if (!members.contains(senderId)) {
+      throw Exception('You are not a member of this chat.');
+    }
+
     final now = DateTime.now().toIso8601String();
     await supabase.from('chat_messages').insert({
-      'room_id': roomId,
-      'sender_id': senderId,
+      'room_id':     roomId,
+      'sender_id':   senderId,
       'sender_name': senderName,
-      'content': safe,
-      'created_at': now,
+      'content':     safe,
+      'created_at':  now,
     });
     await supabase.from('chat_rooms').update({
       'last_message': safe.length > 60 ? '${safe.substring(0, 60)}...' : safe,
       'last_message_time': now,
     }).eq('id', roomId);
 
-    // Push notification to other members
     NotificationService.send(
-      type: 'chat',
-      title: '💬 $senderName',
-      body: safe.length > 80 ? '${safe.substring(0, 80)}...' : safe,
+      type:          'chat',
+      title:         '💬 $senderName',
+      body:          safe.length > 80 ? '${safe.substring(0, 80)}...' : safe,
       excludeUserId: senderId,
     );
   }
 
-  /// Sync message deletions when connection is restored
-  Future<void> syncDeletions() async {
-    if (_connectivity.isOffline) return;
-
-    try {
-      final deletedItems = await _db.getDeletedItems();
-      final deletedMsgIds = deletedItems['messages'] ?? [];
-
-      for (final id in deletedMsgIds) {
-        try {
-          await supabase.from('chat_messages').delete().eq('id', id);
-          print('Synced deletion for message: $id');
-        } catch (e) {
-          print('Failed to sync deletion for $id: $e');
-        }
-      }
-    } catch (e) {
-      print('Error syncing message deletions: $e');
-    }
-  }
-
-  /// Delete message — syncs across offline/online
+  // ── Delete message ─────────────────────────────────────────────────────────
   Future<void> deleteMessage(String messageId) async {
     await _db.deleteMessage(messageId);
 
@@ -465,7 +504,31 @@ class ChatService {
         print('Error deleting message: $e');
       }
     } else {
-      print('Message deleted offline — will sync when online');
+      // Only queue server deletion for real (non-pending) messages
+      if (!messageId.startsWith('pending_')) {
+        await _db.enqueuePendingAction(
+          actionType:  'delete_message',
+          payloadJson: jsonEncode({'id': messageId}),
+        );
+      }
+    }
+  }
+
+  /// Sync message deletions when connection is restored.
+  Future<void> syncDeletions() async {
+    if (_connectivity.isOffline) return;
+    try {
+      final deletedItems = await _db.getDeletedItems();
+      for (final id in deletedItems['messages'] ?? []) {
+        if (id.startsWith('pending_')) continue; // never existed on server
+        try {
+          await supabase.from('chat_messages').delete().eq('id', id);
+        } catch (e) {
+          print('Failed to sync deletion for $id: $e');
+        }
+      }
+    } catch (e) {
+      print('Error syncing message deletions: $e');
     }
   }
 }

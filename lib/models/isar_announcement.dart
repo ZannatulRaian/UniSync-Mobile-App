@@ -2,7 +2,11 @@ import 'package:isar/isar.dart';
 import 'announcement_model.dart';
 
 part 'isar_announcement.g.dart';
-
+// This tells Isar:
+// “Store this class as a database collection (table).”
+// So IsarAnnouncement becomes a local database table.
+// Announcement → remote model (Supabase/API)
+// IsarAnnouncement → local model (offline cache)
 @collection
 class IsarAnnouncement {
   Id? id = Isar.autoIncrement;
@@ -17,7 +21,7 @@ class IsarAnnouncement {
   late bool isBookmarked;
   late DateTime cachedAt;
   late bool isDeleted;
-  
+  // Constructor - This creates a full local record.
   IsarAnnouncement({
     this.id,
     required this.remoteId,
@@ -31,7 +35,7 @@ class IsarAnnouncement {
     required this.cachedAt,
     this.isDeleted = false,
   });
-
+  // This converts: Remote model → Local cache model
   factory IsarAnnouncement.fromAnnouncement(Announcement a) => IsarAnnouncement(
     remoteId: a.id,
     title: a.title,

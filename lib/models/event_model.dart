@@ -12,7 +12,7 @@ class Event {
   final String imageColor;
   final DateTime createdAt;
   bool isRSVPed;
-
+  // Constructor
   Event({
     required this.id, required this.title, required this.description,
     required this.category, required this.location, required this.date,
@@ -20,7 +20,7 @@ class Event {
     required this.organizerId, required this.imageColor,
     required this.createdAt, this.isRSVPed = false,
   });
-
+  // Factory constructor
   factory Event.fromMap(Map<String, dynamic> d) => Event(
     id:          d['id'],
     title:       d['title'] ?? '',
@@ -35,7 +35,7 @@ class Event {
     imageColor:  d['image_color'] ?? '1A56DB',
     createdAt:   DateTime.parse(d['created_at'] ?? DateTime.now().toIso8601String()),
   );
-
+  // Dart Object → Database Format
   Map<String, dynamic> toMap() => {
     'id': id, 'title': title, 'description': description,
     'category': category, 'location': location,

@@ -2,7 +2,7 @@ import 'package:isar/isar.dart';
 import 'chat_model.dart';
 
 part 'isar_chat.g.dart';
-
+// “Create a database table for this class.”
 @collection
 class IsarChatRoom {
   Id? id = Isar.autoIncrement;

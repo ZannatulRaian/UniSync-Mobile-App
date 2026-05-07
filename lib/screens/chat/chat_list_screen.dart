@@ -19,7 +19,6 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   @override
   void initState() {
     super.initState();
-    // Join presence immediately on tab open — not just on user change
     Future.microtask(() {
       final user = ref.read(currentUserProvider);
       if (user != null) {
@@ -31,12 +30,26 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
-    if (user == null) return const Center(child: CircularProgressIndicator());
 
+    // FIX: Show loading while user is null instead of infinite spinner inside body
+    if (user == null) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: AppTheme.primary,
+          title: Text('Messages',
+              style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // FIX: Listen for user changes and re-join presence
     ref.listen(currentUserProvider, (_, u) {
       if (u != null) ref.read(chatServiceProvider).joinPresence(u.uid, u.name);
     });
 
+    // FIX: Use user.uid (never empty now) so provider doesn't return [] forever
     final roomsAsync  = ref.watch(chatRoomsProvider(user.uid));
     final onlineAsync = ref.watch(onlineUsersProvider);
     final onlineIds   = onlineAsync.asData?.value ?? {};
@@ -88,7 +101,7 @@ class _ChatListScreenState extends ConsumerState<ChatListScreen> {
   }
 }
 
-// ── Avatar helper — shows photo if available, falls back to initial ───────────
+// ── Avatar helper ─────────────────────────────────────────────────────────────
 class _MemberAvatar extends StatelessWidget {
   final String? photoUrl;
   final String initial;
@@ -104,11 +117,10 @@ class _MemberAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Cache-bust the URL so updated photos appear immediately
     final url = (photoUrl != null && photoUrl!.isNotEmpty)
         ? Uri.tryParse(photoUrl!)
-        ?.replace(queryParameters: {'v': photoUrl.hashCode.toString()})
-        .toString()
+            ?.replace(queryParameters: {'v': photoUrl.hashCode.toString()})
+            .toString()
         : null;
 
     return CircleAvatar(
@@ -117,10 +129,10 @@ class _MemberAvatar extends StatelessWidget {
       backgroundImage: url != null ? NetworkImage(url) : null,
       child: url == null
           ? Text(initial,
-          style: GoogleFonts.poppins(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: radius * 0.8))
+              style: GoogleFonts.poppins(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                  fontSize: radius * 0.8))
           : null,
     );
   }
@@ -160,7 +172,6 @@ class _ActiveUsersBar extends StatelessWidget {
           final isOnline = otherIds.isNotEmpty && onlineIds.contains(otherIds.first);
           final color    = Color(int.parse('FF${room.avatarColor}', radix: 16));
           final shortName = room.displayName(currentUserId).split(' ').first;
-          // FIX: get the other person's photo URL
           final photoUrl = room.displayPhotoUrl(currentUserId);
 
           return GestureDetector(
@@ -188,7 +199,6 @@ class _ActiveUsersBar extends StatelessWidget {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(2),
-                      // FIX: use _MemberAvatar which shows real photo
                       child: _MemberAvatar(
                         photoUrl: photoUrl,
                         initial:  room.displayInitial(currentUserId),
@@ -238,7 +248,6 @@ class _RoomTile extends StatelessWidget {
     final c        = Color(int.parse('FF${room.avatarColor}', radix: 16));
     final otherIds = room.memberIds.where((id) => id != userId).toList();
     final isOnline = !room.isGroup && otherIds.isNotEmpty && onlineIds.contains(otherIds.first);
-    // FIX: get the other person's photo URL
     final photoUrl = room.displayPhotoUrl(userId);
 
     return Container(
@@ -254,7 +263,6 @@ class _RoomTile extends StatelessWidget {
         onTap: () => Navigator.push(context,
             MaterialPageRoute(builder: (_) => ChatRoomScreen(room: room))),
         leading: Stack(clipBehavior: Clip.none, children: [
-          // FIX: show real profile photo instead of just initial
           _MemberAvatar(
             photoUrl: photoUrl,
             initial:  room.displayInitial(userId),

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../theme/app_theme.dart';
 import '../../models/resource_model.dart';
 import '../../providers/resource_provider.dart';
+import '../../providers/marking_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/shared_widgets.dart';
 
@@ -51,10 +52,50 @@ class _ResourceDetailScreenState extends ConsumerState<ResourceDetailScreen> {
     final r = widget.resource;
     final c = Color(int.parse('FF${r.iconColor}', radix: 16));
     final user = ref.watch(currentUserProvider);
+    final isBookmarked = ref.watch(resourceBookmarkProvider(r.id));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(backgroundColor: AppTheme.primary, title: Text('Resource Details', style: GoogleFonts.poppins(color: Colors.white))),
+      appBar: AppBar(
+        backgroundColor: AppTheme.primary,
+        title: Text('Resource Details', style: GoogleFonts.poppins(color: Colors.white)),
+        actions: [
+          // NEW: Bookmark button
+          IconButton(
+            icon: Icon(
+              isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+            onPressed: () async {
+              try {
+                await ref
+                    .read(resourceBookmarkProvider(r.id).notifier)
+                    .toggle();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isBookmarked ? 'Removed from bookmarks' : 'Added to bookmarks',
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Error updating bookmark'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Container(

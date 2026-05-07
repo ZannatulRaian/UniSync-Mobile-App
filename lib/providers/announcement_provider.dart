@@ -9,9 +9,15 @@ final announcementServiceProvider = Provider<AnnouncementService>((ref) {
   return AnnouncementService(db, connectivity);
 });
 
-// keepAlive: true — prevents re-fetching every time the tab is revisited
+// FIX: Normalize key so 'All' and null both map to the same keepAlive stream.
+// Previously null (from profile screen) vs 'All' (from home/announcements screen)
+// created two separate stream instances → two DB write batches → duplicate records.
 final announcementsStreamProvider =
     StreamProvider.family<List<Announcement>, String?>((ref, type) {
   ref.keepAlive();
-  return ref.watch(announcementServiceProvider).getAnnouncements(type: type);
+  // Treat null and 'All' identically — always fetch all, filter client-side if needed
+  final effectiveType = (type == null || type == 'All') ? null : type;
+  return ref
+      .watch(announcementServiceProvider)
+      .getAnnouncements(type: effectiveType);
 });
