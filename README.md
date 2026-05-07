@@ -28,14 +28,14 @@
   <img src="screenshots/events.jpeg" width="250"/>
 </p>
 <p align="center">
-  <i>Home Screen &nbsp;•&nbsp; Chat System &nbsp;•&nbsp; Events Dashboard</i>
+  <i>Home Screen • Chat System • Events Dashboard</i>
 </p>
 <p align="center">
   <img src="screenshots/resource.jpeg" width="250"/>
   <img src="screenshots/profile.jpeg" width="250"/>
 </p>
 <p align="center">
-  <i>User Profile &nbsp;•&nbsp; Resources</i>
+  <i>User Profile • Resources</i>
 </p>
 
 ---
