@@ -23,16 +23,16 @@
 ## App Preview
 
 <p align="center">
-  <img src="screenshots/home.jpeg" width="250"/>
-  <img src="screenshots/chat.jpeg" width="250"/>
-  <img src="screenshots/events.jpeg" width="250"/>
+  <img src="screenshots/home.jpg" width="250"/>
+  <img src="screenshots/chat.jpg" width="250"/>
+  <img src="screenshots/events.jpg" width="250"/>
 </p>
 <p align="center">
   <i>Home Screen • Chat System • Events Dashboard</i>
 </p>
 <p align="center">
-  <img src="screenshots/resource.jpeg" width="250"/>
-  <img src="screenshots/profile.jpeg" width="250"/>
+  <img src="screenshots/resource.jpg" width="250"/>
+  <img src="screenshots/profile.jpg" width="250"/>
 </p>
 <p align="center">
   <i>User Profile • Resources</i>
