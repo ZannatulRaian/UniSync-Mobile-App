@@ -277,8 +277,8 @@ unisync/
 │       └── background.jpg
 │
 ├── sql/
-│   ├── SUPABASE_SETUP.sql                     # Full DB bootstrap — run once in SQL Editor
-│   └── NOTIFICATIONS_SETUP.sql               # Adds user_push_tokens table
+│   ├── SUPABASE_SETUP.sql                 # Full DB bootstrap — run once in SQL Editor
+│   └── NOTIFICATIONS_SETUP.sql            # Adds user_push_tokens table
 │
 ├── .env.example                           # Copy to .env and fill in secrets
 ├── pubspec.yaml
