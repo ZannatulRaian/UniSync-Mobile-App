@@ -112,30 +112,117 @@ Clients cannot self-assign or escalate roles — this is enforced at the databas
 ## Project Structure
 
 ```
-lib/
-├── main.dart                   # Entry point, initialisation & AuthGate
-├── models/                     # Dart + Isar data models
-├── providers/                  # Riverpod state providers
-├── services/
-│   ├── auth_service.dart
-│   ├── announcement_service.dart
-│   ├── chat_service.dart
-│   ├── event_service.dart
-│   ├── resource_service.dart
-│   ├── notification_service.dart
-│   ├── offline_sync_service.dart
-│   ├── local_database_service.dart
-│   └── connectivity_service.dart
-├── screens/                    # UI — auth, dashboard, chat, events, resources, profile
-├── widgets/                    # Reusable UI components
-└── theme/                      # App-wide Material theme
-
-supabase/
-└── functions/
-    └── send-notification/      # Deno Edge Function for push notifications
-
-android/                        # Android native config + Firebase google-services.json
-assets/images/                  # App logo, background, icons
+unisync/
+├── lib/
+│   ├── main.dart                          # App entry point
+│   │                                      # Init order: dotenv → Firebase → Isar
+│   │                                      # → ConnectivityService → Supabase
+│   │                                      # → OneSignal → ProviderScope
+│   │
+│   ├── models/
+│   │   ├── user_model.dart                # AppUser
+│   │   ├── announcement_model.dart        # Announcement
+│   │   ├── chat_model.dart                # ChatRoom, ChatMessage
+│   │   ├── event_model.dart               # Event
+│   │   ├── resource_model.dart            # Resource
+│   │   ├── isar_announcement.dart         # Isar collection schema
+│   │   ├── isar_chat.dart                 # Isar collection schema (room + message)
+│   │   ├── isar_event.dart                # Isar collection schema
+│   │   ├── isar_resource.dart             # Isar collection schema
+│   │   ├── isar_pending_action.dart       # Offline write queue schema
+│   │   └── *.g.dart                       # Generated — do not edit manually
+│   │
+│   ├── services/
+│   │   ├── auth_service.dart              # signUp · signIn · signOut · getUser
+│   │   ├── announcement_service.dart      # getAnnouncements · postAnnouncement
+│   │   │                                  # bookmarkToggle · deleteAnnouncement
+│   │   ├── chat_service.dart              # getRooms · getMessages · sendMessage
+│   │   │                                  # createRoom · presence · unread
+│   │   ├── event_service.dart             # getEvents · createEvent · rsvpEvent
+│   │   │                                  # deleteEvent
+│   │   ├── resource_service.dart          # getResources · uploadResource
+│   │   │                                  # incrementDownloads · rateResource
+│   │   │                                  # deleteResource
+│   │   ├── profile_service.dart           # uploadProfilePhoto · searchUsers
+│   │   ├── notification_service.dart      # initialize · uploadPendingToken
+│   │   │                                  # send() [static]
+│   │   ├── connectivity_service.dart      # isOnline · isOffline
+│   │   │                                  # onConnectionRestored callback
+│   │   ├── offline_sync_service.dart      # syncAll · pendingCount
+│   │   ├── marking_service.dart           # toggleResourceBookmark
+│   │   │                                  # syncBookmarks
+│   │   ├── local_database_service.dart    # Isar open/close + all cache ops
+│   │   └── supabase_client.dart           # Supabase singleton (supabase getter)
+│   │
+│   ├── providers/
+│   │   ├── auth_provider.dart             # authStateProvider
+│   │   │                                  # currentUserProvider (StateNotifier)
+│   │   │                                  # authServiceProvider
+│   │   ├── announcement_provider.dart     # announcementServiceProvider
+│   │   ├── chat_provider.dart             # chatServiceProvider
+│   │   ├── event_provider.dart            # eventServiceProvider
+│   │   ├── resource_provider.dart         # resourceServiceProvider
+│   │   ├── connectivity_provider.dart     # connectivityServiceProvider
+│   │   └── marking_provider.dart          # markingServiceProvider
+│   │
+│   ├── screens/
+│   │   ├── auth/
+│   │   │   ├── login_screen.dart          # Email + password · forgot password
+│   │   │   └── signup_screen.dart         # Pre-filled role + ID from onboarding
+│   │   ├── onboarding/
+│   │   │   └── onboarding_screen.dart     # 3 feature slides → role/ID selection
+│   │   │                                  # Validates ID regex before proceeding
+│   │   ├── dashboard/
+│   │   │   ├── main_dashboard.dart        # IndexedStack · 5-tab bottom nav
+│   │   │   │                              # BackdropFilter frosted glass nav bar
+│   │   │   ├── home_tab.dart              # Announcement feed (home tab)
+│   │   │   └── announcements_screen.dart  # Full list + type filter chips
+│   │   ├── chat/
+│   │   │   ├── chat_list_screen.dart      # Room list with unread badges
+│   │   │   ├── chat_room_screen.dart      # Message thread + send bar
+│   │   │   └── new_chat_screen.dart       # searchUsers → create DM or group
+│   │   ├── events/
+│   │   │   ├── events_list_screen.dart
+│   │   │   ├── event_detail_screen.dart   # RSVP toggle + live attendee count
+│   │   │   └── event_creation_screen.dart # Faculty only
+│   │   ├── resources/
+│   │   │   ├── resources_screen.dart      # Filter by department + type
+│   │   │   ├── resource_detail_screen.dart # Download + star rating
+│   │   │   └── resource_upload_screen.dart
+│   │   └── profile/
+│   │       ├── profile_screen.dart
+│   │       └── edit_profile_screen.dart   # Name · semester · avatar upload
+│   │
+│   ├── widgets/
+│   │   └── shared_widgets.dart            # Cards · shimmer loaders · empty states
+│   │
+│   └── theme/
+│       └── app_theme.dart                 # AppTheme.primary · AppTheme.ink900 etc.
+│                                          # Material 3 theme + AppBackground widget
+│
+├── supabase/
+│   └── functions/
+│       └── send-notification/
+│           └── index.ts                   # Deno edge function — OneSignal dispatch
+│
+├── android/
+│   └── app/
+│       ├── google-services.json           # Firebase — never commit real values
+│       └── src/main/kotlin/.../MainActivity.kt
+│
+├── assets/
+│   └── images/
+│       ├── logo.png
+│       ├── logo_bg.png
+│       └── background.jpg
+│
+├── sql/
+│   ├── SUPABASE_SETUP.sql                 # Full DB bootstrap — run once in SQL Editor
+│   └── NOTIFICATIONS_SETUP.sql            # Adds user_push_tokens table
+│
+├── .env.example                           # Copy to .env and fill in secrets
+├── pubspec.yaml
+└── build_run.ps1                          # Windows build helper script
 ```
 
 ---
