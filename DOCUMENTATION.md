@@ -20,7 +20,8 @@ UniSync is a Flutter mobile application for universities. It gives students and 
    - [ConnectivityService](#48-connectivityservice)
    - [OfflineSyncService](#49-offlinesynccservice)
    - [LocalDatabaseService](#410-localdatabaseservice)
-   - [Edge Function — send-notification](#411-edge-function--send-notification)
+   - [MarkingService](#411-markingservice)
+   - [Edge Function — send-notification](#412-edge-function--send-notification)
 5. [Database Schema](#5-database-schema)
 6. [Tech Stack](#6-tech-stack)
 
@@ -296,6 +297,14 @@ unisync/
 
 Services are the single point of data access. Each service is provided via Riverpod and receives `LocalDatabaseService` + `ConnectivityService` through its constructor, except singletons (`AuthService`, `ConnectivityService`, `NotificationService`).
 
+The global Supabase client is accessed everywhere via:
+
+```dart
+final supabase = Supabase.instance.client;
+```
+
+**Offline behaviour summary:** Every write operation checks `ConnectivityService.isOnline` before hitting Supabase. When offline, actions are written to the local Isar database as optimistic records (prefixed `pending_`), queued as `IsarPendingAction` rows with serialized JSON payloads, and replayed in insertion order by `OfflineSyncService.syncAll()` when connectivity is restored (max 5 retries per action).
+
 ---
 
 ### 4.1 AuthService
@@ -303,6 +312,15 @@ Services are the single point of data access. Each service is provided via River
 ```dart
 class AuthService
 ```
+
+#### Properties
+
+| Property | Type | Description |
+|---|---|---|
+| `currentUser` | `User?` | Current Supabase Auth session user |
+| `authStateChanges` | `Stream<AuthState>` | Stream of auth state change events |
+
+---
 
 #### `signUp()`
 
@@ -319,14 +337,14 @@ Future<AppUser> signUp({
 
 Calls `supabase.auth.signUp()`, then inserts into `users`. The DB trigger assigns the role before the insert completes. Caches the returned profile to `SharedPreferences`.
 
-**Validation (client-side, before any network call):**
+**Client-side validation (before any network call):**
 
 | Field | Rule |
 |---|---|
 | `name` | Non-empty after trim |
 | `password` | `length >= 8` |
 
-**Validation (domain, on email):**
+**Domain validation (on email):**
 
 Accepted suffixes: `.edu` · `.edu.bd` · `.ac.bd` · `.ac.uk` · `.ac.in`
 
@@ -338,17 +356,20 @@ Accepted suffixes: `.edu` · `.edu.bd` · `.ac.bd` · `.ac.uk` · `.ac.in`
 | `^1[0-9]{7}$` | role = `faculty` |
 | Anything else | `RAISE EXCEPTION` — sign-up rejected |
 
-**Error strings (surfaced via `friendlyAuthError()`):**
+**Returns:** `Future<AppUser>`
 
-| Raw error contains | Shown to user |
-|---|---|
-| `over_email_send_rate_limit` / `429` | `"Too many attempts. Please wait 60 seconds and try again."` |
-| `User already registered` | `"An account with this email already exists. Try signing in instead."` |
-| `Invalid login credentials` | `"Incorrect email or password. Please try again."` |
-| `Email not confirmed` | `"Please confirm your email first. Check your inbox for a verification link."` |
-| `SocketException` / `NetworkException` | `"No internet connection. Check your WiFi or mobile data."` |
-| `weak_password` | `"Password is too weak. Use at least 8 characters."` |
-| Invalid domain (checked before call) | `"Must be a university email (e.g. .edu, .edu.bd, .ac.bd)"` |
+**Example:**
+
+```dart
+final user = await authService.signUp(
+  name: 'Rania Hossain',
+  email: 'rania@uni.ac.bd',
+  password: 'SecurePass1',
+  department: 'Computer Science',
+  semester: 'Spring 2025',
+  studentId: 'CS-20182',
+);
+```
 
 ---
 
@@ -359,6 +380,14 @@ Future<AppUser> signIn(String email, String password)
 ```
 
 Validates university domain, then calls `supabase.auth.signInWithPassword()`. Fetches and caches the full profile on success.
+
+**Returns:** `Future<AppUser>`
+
+**Example:**
+
+```dart
+final user = await authService.signIn('rania@uni.ac.bd', 'SecurePass1');
+```
 
 ---
 
@@ -372,23 +401,21 @@ Calls `_clearCachedUser()` (removes `cached_user_profile` from `SharedPreference
 
 ---
 
-#### `sendPasswordReset(email)`
-
-```dart
-Future<void> sendPasswordReset(String email)
-```
-
-Validates university domain, then calls `supabase.auth.resetPasswordForEmail(email)`.
-
----
-
 #### `getUser(uid)`
 
 ```dart
 Future<AppUser> getUser(String uid)
 ```
 
-Fetches `users` row by `id`, caches it. On any exception: loads `SharedPreferences` cache and returns it if `cached.id == uid`, otherwise rethrows.
+Fetches the `users` row by `id` and refreshes the local cache. On any network exception: loads the `SharedPreferences` cache and returns it if `cached.id == uid`, otherwise rethrows.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `uid` | `String` | Supabase Auth user UUID |
+
+**Returns:** `Future<AppUser>`
+
+> **Note:** Throws if the device is offline **and** no cached profile exists for the given `uid`.
 
 ---
 
@@ -399,6 +426,43 @@ Future<void> updateUser(String uid, {String? name, String? department, String? s
 ```
 
 Builds a map of non-null fields and calls `supabase.from('users').update(updates).eq('id', uid)`. Refreshes the local cache afterward.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `uid` | `String` | User UUID |
+| `name` | `String?` | New display name (optional) |
+| `department` | `String?` | New department (optional) |
+| `semester` | `String?` | New semester (optional) |
+
+---
+
+#### `sendPasswordReset(email)`
+
+```dart
+Future<void> sendPasswordReset(String email)
+```
+
+Validates university domain, then calls `supabase.auth.resetPasswordForEmail(email)`.
+
+---
+
+#### `friendlyAuthError(e)`
+
+```dart
+String friendlyAuthError(Object e)
+```
+
+Normalizes raw Supabase/Dart auth exceptions into user-readable strings.
+
+| Raw error contains | Shown to user |
+|---|---|
+| `over_email_send_rate_limit` / `429` | `"Too many attempts. Please wait 60 seconds and try again."` |
+| `User already registered` | `"An account with this email already exists. Try signing in instead."` |
+| `Invalid login credentials` | `"Incorrect email or password. Please try again."` |
+| `Email not confirmed` | `"Please confirm your email first. Check your inbox for a verification link."` |
+| `SocketException` / `NetworkException` | `"No internet connection. Check your WiFi or mobile data."` |
+| `weak_password` | `"Password is too weak. Use at least 8 characters."` |
+| Invalid domain (checked before call) | `"Must be a university email (e.g. .edu, .edu.bd, .ac.bd)"` |
 
 ---
 
@@ -431,6 +495,8 @@ class AnnouncementService {
 }
 ```
 
+---
+
 #### `getAnnouncements({String? type})`
 
 ```dart
@@ -452,6 +518,16 @@ Realtime channel name: `announcements_<type>` or `announcements_all`. One channe
        re-SELECT  →  cacheAnnouncements  →  re-emit
 ```
 
+**Returns:** `Stream<List<Announcement>>`
+
+**Example:**
+
+```dart
+announcementService
+  .getAnnouncements(type: 'Academic')
+  .listen((list) => setState(() => _announcements = list));
+```
+
 ---
 
 #### `postAnnouncement({title, content, postedBy, postedById, type})`
@@ -466,11 +542,19 @@ Future<void> postAnnouncement({
 })
 ```
 
+Throws `"Title cannot be empty"` or `"Content cannot be empty"` before any network call.
+
 **Online:** `INSERT INTO announcements` → `NotificationService.send(type: 'announcement', excludeUserId: postedById)`
 
 **Offline:** enqueue `IsarPendingAction(actionType: 'post_announcement', payloadJson: {...})` → insert optimistic `IsarAnnouncement(remoteId: 'pending_<ms>')` into Isar
 
-Throws `"Title cannot be empty"` or `"Content cannot be empty"` before any network call.
+| Parameter | Type | Description |
+|---|---|---|
+| `title` | `String` | Headline — cannot be empty |
+| `content` | `String` | Full body text — cannot be empty |
+| `postedBy` | `String` | Poster's display name |
+| `postedById` | `String` | Poster's UUID (excluded from push notification) |
+| `type` | `String` | `'Academic'` · `'Financial'` · `'General'` · `'Club'` |
 
 ---
 
@@ -482,7 +566,13 @@ Future<void> bookmarkToggle(String userId, String announcementId, bool add)
 
 **Online:** `supabase.rpc('append_bookmark' | 'remove_bookmark', {user_id, ann_id})` → `updateAnnouncementBookmark(remoteId, add)` in Isar
 
-**Offline:** `updateAnnouncementBookmark(remoteId, add)` only (no server call, no pending action — state will reconcile on next full fetch)
+**Offline:** `updateAnnouncementBookmark(remoteId, add)` only — no server call, no pending action. State will reconcile on next full fetch.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `userId` | `String` | UUID of the user |
+| `announcementId` | `String` | UUID of the announcement |
+| `add` | `bool` | `true` to bookmark, `false` to remove |
 
 ---
 
@@ -497,6 +587,16 @@ Future<void> deleteAnnouncement(String id)
 **Online:** `DELETE FROM announcements WHERE id = id`
 
 **Offline:** enqueue `IsarPendingAction(actionType: 'delete_announcement', payloadJson: {id})`
+
+---
+
+#### `syncDeletions()`
+
+```dart
+Future<void> syncDeletions()
+```
+
+Replays queued announcement deletions against Supabase. Called by `OfflineSyncService` when connectivity is restored. No-op when offline.
 
 ---
 
@@ -525,6 +625,8 @@ class EventService {
 }
 ```
 
+---
+
 #### `getEvents()`
 
 ```dart
@@ -534,6 +636,8 @@ Stream<List<Event>> getEvents()
 Sorted by `date ASC`. Realtime channel: `events_changes`. Same three-tier pattern as announcements.
 
 `isRSVPed` on each `Event` is resolved client-side from `user.rsvpedEvents` at the point the stream is consumed — the field is not in the DB row.
+
+**Returns:** `Stream<List<Event>>`
 
 ---
 
@@ -554,11 +658,22 @@ Future<void> createEvent({
 
 `image_color` is picked deterministically: `colors[DateTime.now().millisecond % colors.length]` where `colors = ['1A56DB', '0E9F6E', 'E3A008', 'E02424', '9061F9', '3F83F8']`.
 
+Throws `"Title required"` before any network call.
+
 **Online:** `INSERT INTO events` → `NotificationService.send(type: 'event', excludeUserId: organizerId)`
 
 **Offline:** enqueue `IsarPendingAction(actionType: 'create_event')` → insert optimistic `IsarEvent(remoteId: 'pending_<ms>')`
 
-Throws `"Title required"` before any network call.
+| Parameter | Type | Description |
+|---|---|---|
+| `title` | `String` | Event title — cannot be empty |
+| `description` | `String` | Full description |
+| `category` | `String` | e.g. `'Academic'`, `'Social'`, `'Sports'` |
+| `location` | `String` | Venue name or address |
+| `date` | `DateTime` | Event date |
+| `time` | `String` | Human-readable string, e.g. `'3:00 PM'` |
+| `organizer` | `String` | Organizer display name |
+| `organizerId` | `String` | Organizer UUID (excluded from push notification) |
 
 ---
 
@@ -598,9 +713,9 @@ class Event {
   final int attendees;         // managed by toggle_rsvp RPC
   final String organizer;      // display name
   final String organizerId;    // FK → users.id
-  final String imageColor;     // hex string, e.g. "1A56DB"
+  final String imageColor;     // hex string without '#', e.g. "1A56DB"
   final DateTime createdAt;
-  bool isRSVPed;               // resolved client-side, not a DB column
+  bool isRSVPed;               // resolved client-side from user.rsvpedEvents, not a DB column
 }
 ```
 
@@ -617,6 +732,8 @@ class ResourceService {
 }
 ```
 
+---
+
 #### `getResources({String? department, String? type})`
 
 ```dart
@@ -624,6 +741,13 @@ Stream<List<Resource>> getResources({String? department, String? type})
 ```
 
 Sorted by `uploaded_at DESC`. Filtering is applied client-side after the Supabase fetch (not via query params). Realtime channel name appends a millisecond timestamp to prevent stale subscription conflicts: `resources_<dept>_<type>_<ms>`.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `department` | `String?` | Department filter. Pass `'All'` or `null` to skip. |
+| `type` | `String?` | File type filter: `'PDF'`, `'DOC'`, `'PPT'`, `'JPG'`, etc. |
+
+**Returns:** `Stream<List<Resource>>`
 
 ---
 
@@ -642,7 +766,7 @@ Future<void> uploadResource({
 })
 ```
 
-Validation (throws before any I/O):
+**Validation (throws before any I/O):**
 
 | Check | Throws |
 |---|---|
@@ -734,7 +858,7 @@ class Resource {
   final String uploadedBy;    // display name
   final String uploadedById;  // FK → users.id
   final DateTime uploadedAt;
-  final String iconColor;     // hex string for card icon
+  final String iconColor;     // hex string without '#' for card icon
   bool isBookmarked;          // local-only, managed by MarkingService
 }
 ```
@@ -750,6 +874,8 @@ class ChatService {
   ChatService(LocalDatabaseService db, ConnectivityService connectivity)
 }
 ```
+
+---
 
 #### `getRooms(userId)`
 
@@ -776,6 +902,8 @@ Wraps `getRooms()`. For each emitted list:
 3. Count messages newer than that timestamp not sent by `userId` — from Supabase (online) or Isar (offline)
 4. Attach `memberPhotoUrls` and `unreadCount` to each `ChatRoom`
 
+**Returns:** `Stream<List<ChatRoom>>`
+
 ---
 
 #### `getMessages(roomId)`
@@ -787,6 +915,8 @@ Stream<List<ChatMessage>> getMessages(String roomId)
 Emits Isar cache first (includes `pending_` optimistic messages). Then `SELECT * FROM chat_messages WHERE room_id = roomId ORDER BY created_at ASC`. Subscribes to Realtime INSERT events filtered by `room_id` on channel `room_<roomId>`.
 
 On each fresh server fetch, calls `removeSyncedOptimisticMessages(roomId, serverContents)` to delete `pending_` Isar entries whose content matches a real server message.
+
+**Returns:** `Stream<List<ChatMessage>>`
 
 ---
 
@@ -801,9 +931,10 @@ Future<void> sendMessage({
 })
 ```
 
-Content is trimmed then truncated to `_maxMessageLength` (2000) if needed.
+Content is trimmed then truncated to `_maxMessageLength` (2000) if needed. Empty strings are silently ignored.
 
 **Online:**
+
 ```
 Verify senderId in chat_rooms.member_ids  (throws if not a member or room missing)
 INSERT INTO chat_messages { room_id, sender_id, sender_name, content, created_at }
@@ -813,12 +944,22 @@ NotificationService.send(type: 'chat', title: '💬 $senderName',
 ```
 
 **Offline:**
+
 ```
 tempId = 'pending_<ms>_<senderId>'
 cacheMessages([IsarChatMessage(remoteId: tempId, ...)])   // shows immediately
 enqueuePendingAction(actionType: 'send_message',
   payload: { room_id, sender_id, sender_name, content, created_at, local_temp_id: tempId })
 ```
+
+**Throws:** `'Chat room not found.'` or `'You are not a member of this chat.'`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `roomId` | `String` | Target chat room UUID |
+| `senderId` | `String` | Sender's user UUID |
+| `senderName` | `String` | Sender's display name |
+| `content` | `String` | Message text — truncated to 2000 chars |
 
 ---
 
@@ -834,11 +975,21 @@ Future<ChatRoom> createRoom({
 })
 ```
 
-Throws immediately if offline (room creation requires a live connection).
+Throws immediately if offline — room creation requires a live connection.
 
 For non-group rooms with exactly 2 members: queries `chat_rooms` for an existing room where `is_group = false` and `member_ids @> memberIds`. Returns existing room if found; otherwise inserts a new one.
 
 `avatar_color` is assigned from palette using `DateTime.now().millisecond % colors.length`.
+
+**Returns:** `Future<ChatRoom>`
+
+| Parameter | Type | Description |
+|---|---|---|
+| `name` | `String` | Group name (for DMs, either user's name) |
+| `isGroup` | `bool` | `true` for group chat, `false` for DM |
+| `memberIds` | `List<String>` | User UUIDs — must include the creator |
+| `memberNames` | `List<String>` | Display names, parallel to `memberIds` |
+| `createdById` | `String` | UUID of the creating user |
 
 ---
 
@@ -852,11 +1003,22 @@ Future<void> markRoomAsRead(String roomId)
 
 ---
 
+#### `getUnreadCount(roomId)`
+
+```dart
+Future<int> getUnreadCount(String roomId)
+```
+
+Reads `last_seen_<roomId>` from `SharedPreferences` and counts messages newer than that timestamp not sent by the current user. Uses Supabase when online, Isar cache when offline.
+
+---
+
 #### `joinPresence(userId, userName)` / `leavePresence()`
 
 ```dart
 void joinPresence(String userId, String userName)
 void leavePresence()
+Stream<Set<String>> onlineUserIds()
 ```
 
 `joinPresence` subscribes to the `global_presence` channel, calls `channel.track({user_id, name})` once subscribed. `leavePresence` calls `channel.untrack()` then removes the channel.
@@ -864,6 +1026,21 @@ void leavePresence()
 `onlineStream` (`Stream<Set<String>>`) emits the current set of online user IDs on every `presenceSync`, `presenceJoin`, `presenceLeave` event.
 
 Both are no-ops if offline.
+
+**Example:**
+
+```dart
+// Join on login
+chatService.joinPresence(user.id, user.name);
+
+// Listen for online users
+chatService.onlineUserIds().listen((ids) {
+  setState(() => _onlineIds = ids);
+});
+
+// Leave on logout
+chatService.leavePresence();
+```
 
 ---
 
@@ -888,16 +1065,18 @@ class ChatRoom {
   final bool isGroup;
   final List<String> memberIds;
   final List<String> memberNames;
-  List<String?> memberPhotoUrls; // runtime only — not in DB
-  final String avatarColor;      // hex
+  List<String?> memberPhotoUrls; // runtime only — not in DB, populated by ChatService
+  final String avatarColor;      // hex without '#'
   int unreadCount;               // computed by getRoomsWithUnread()
 
-  // DM helpers — return the other person's data when not a group
+  // DM helpers — return the other person's data when isGroup = false
   String displayName(String currentUserId)
   String displayInitial(String currentUserId)
   String? displayPhotoUrl(String currentUserId)
 }
 ```
+
+---
 
 #### `ChatMessage` model
 
@@ -923,6 +1102,8 @@ class ProfileService {
 }
 ```
 
+---
+
 #### `uploadProfilePhoto(userId, file)`
 
 ```dart
@@ -942,7 +1123,7 @@ supabase.rpc('update_photo_url', params: {
 
 This RPC exists specifically because direct `.update({'photo_url': url}).eq('id', userId)` from Dart throws `operator does not exist: uuid = text`.
 
-Returns the public Storage URL.
+**Returns:** `Future<String>` — public Supabase Storage URL
 
 ---
 
@@ -964,6 +1145,13 @@ LIMIT 20
 
 Never returns `student_id` or any sensitive column.
 
+| Parameter | Type | Description |
+|---|---|---|
+| `query` | `String` | Search string — minimum 2 characters |
+| `excludeId` | `String` | UUID of current user (excluded from results) |
+
+**Returns:** `Future<List<AppUser>>`
+
 ---
 
 ### 4.7 NotificationService
@@ -971,11 +1159,13 @@ Never returns `student_id` or any sensitive column.
 ```dart
 class NotificationService {
   NotificationService._();
-  static final instance = NotificationService._();
+  static final instance = NotificationService._();  // singleton
 }
 ```
 
-Singleton. Must be initialized after `Firebase.initializeApp()`.
+Must be initialized after `Firebase.initializeApp()`.
+
+---
 
 #### `initialize(oneSignalAppId)`
 
@@ -983,7 +1173,7 @@ Singleton. Must be initialized after `Firebase.initializeApp()`.
 Future<void> initialize(String oneSignalAppId)
 ```
 
-Sequence:
+Initialization sequence:
 
 ```
 OneSignal.Debug.setLogLevel(OSLogLevel.verbose)   // remove in production
@@ -1016,7 +1206,7 @@ if pendingId != null && pendingId != liveId:
 SharedPreferences.remove('pending_onesignal_id')
 ```
 
-`_uploadPlayerId` upserts into `user_push_tokens(user_id, player_id, updated_at)` with `onConflict: 'user_id'`. If the user is not yet authenticated, it saves to `SharedPreferences` instead.
+`_uploadPlayerId` upserts into `user_push_tokens(user_id, player_id, updated_at)` with `onConflict: 'user_id'`. If the user is not yet authenticated, it saves to `SharedPreferences` under `pending_onesignal_id` instead.
 
 ---
 
@@ -1031,7 +1221,25 @@ static Future<void> send({
 })
 ```
 
-Calls `supabase.functions.invoke('send-notification', body: {...})`. Errors are caught and printed — never rethrown. Called internally by `AnnouncementService`, `EventService`, `ChatService`, `ResourceService` after successful writes.
+Calls `supabase.functions.invoke('send-notification', body: {...})`. Errors are caught and printed — never rethrown. Called internally by `AnnouncementService`, `EventService`, `ChatService`, and `ResourceService` after every successful write.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `type` | `String` | `'announcement'` · `'event'` · `'chat'` · `'resource'` |
+| `title` | `String` | Push notification title |
+| `body` | `String` | Push notification body |
+| `excludeUserId` | `String?` | User UUID to exclude from broadcast (e.g. the sender) |
+
+**Example:**
+
+```dart
+NotificationService.send(
+  type: 'announcement',
+  title: '📢 New Announcement',
+  body: announcement.title,
+  excludeUserId: currentUser.id,
+);
+```
 
 ---
 
@@ -1047,6 +1255,8 @@ class ConnectivityService {
   void Function()? onConnectionRestored
 }
 ```
+
+---
 
 #### `initialize()`
 
@@ -1065,7 +1275,14 @@ if !wasOnline && _isOnline:
 
 `_resultsToOnline` handles both `List<ConnectivityResult>` (v6.x) and single `ConnectivityResult` (older versions).
 
-`onConnectionRestored` is assigned in `main.dart`. In the current codebase it prints a log line; hook `OfflineSyncService.syncAll()` here to enable full auto-sync.
+`onConnectionRestored` is assigned in `main.dart`. Wire `OfflineSyncService.syncAll()` here to enable full auto-sync on reconnection:
+
+```dart
+connectivityService.onConnectionRestored = () async {
+  final synced = await offlineSyncService.syncAll();
+  print('Synced $synced pending actions');
+};
+```
 
 ---
 
@@ -1076,6 +1293,10 @@ class OfflineSyncService {
   OfflineSyncService(LocalDatabaseService db, ConnectivityService connectivity)
 }
 ```
+
+Central offline-sync engine. When the device comes back online, `syncAll()` replays every pending `IsarPendingAction` against Supabase in insertion order.
+
+---
 
 #### `syncAll()`
 
@@ -1103,6 +1324,10 @@ clearSyncedActions()       // prune completed records from Isar
 return synced
 ```
 
+**Returns:** `Future<int>` — count of successfully synced actions
+
+---
+
 #### `pendingCount()`
 
 ```dart
@@ -1110,6 +1335,8 @@ Future<int> pendingCount()
 ```
 
 Returns count of unsynced `IsarPendingAction` records. Useful for a UI badge.
+
+---
 
 #### Replay dispatch table
 
@@ -1124,6 +1351,8 @@ Returns count of unsynced `IsarPendingAction` records. Useful for a UI badge.
 | `delete_announcement` | `DELETE FROM announcements WHERE id = ?` |
 | `delete_event` | `DELETE FROM events WHERE id = ?` |
 | `delete_resource` | `storage.remove([storage_path])` → `DELETE FROM resources WHERE id = ?` |
+
+---
 
 #### `IsarPendingAction` schema
 
@@ -1168,7 +1397,7 @@ ann.cachedAt = DateTime.now();
 await isar.isarAnnouncements.put(ann);
 ```
 
-Local-only fields preserved per collection:
+**Local-only fields preserved per collection:**
 
 | Collection | Preserved fields |
 |---|---|
@@ -1178,7 +1407,7 @@ Local-only fields preserved per collection:
 | `IsarChatMessage` | `isDeleted` |
 | `IsarResource` | `isBookmarked`, `isDeleted` |
 
-**Key methods:**
+**All methods:**
 
 | Method | Description |
 |---|---|
@@ -1209,12 +1438,61 @@ Local-only fields preserved per collection:
 
 ---
 
-### 4.11 Edge Function — send-notification
+### 4.11 MarkingService
+
+```dart
+class MarkingService {
+  MarkingService(LocalDatabaseService db, ConnectivityService connectivity)
+}
+```
+
+Handles resource bookmarking with optimistic local updates and background server sync.
+
+---
+
+#### `toggleResourceBookmark(resourceId, shouldBookmark)`
+
+```dart
+Future<void> toggleResourceBookmark(String resourceId, bool shouldBookmark)
+```
+
+Optimistic update to Isar first (`updateResourceBookmark(resourceId, shouldBookmark)`), then upserts to the `resource_bookmarks` Supabase table if online. If the server call fails, the local state is preserved and a warning is logged.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `resourceId` | `String` | UUID of the resource |
+| `shouldBookmark` | `bool` | `true` to bookmark, `false` to remove |
+
+---
+
+#### `getBookmarkedResources()`
+
+```dart
+Future<List<IsarResource>> getBookmarkedResources()
+```
+
+Returns all locally bookmarked resources from the Isar cache (`isDeleted = false AND isBookmarked = true`).
+
+---
+
+#### `syncBookmarks()`
+
+```dart
+Future<void> syncBookmarks()
+```
+
+Upserts all locally bookmarked resources to `resource_bookmarks` on Supabase. Called when connectivity is restored. No-op when offline.
+
+---
+
+### 4.12 Edge Function — send-notification
 
 **File:** `supabase/functions/send-notification/index.ts`  
 **Runtime:** Deno on Supabase Edge Functions
 
 Receives a POST from `supabase.functions.invoke()`, queries Supabase for target user IDs, and calls the OneSignal REST API.
+
+---
 
 #### Request body
 
@@ -1234,6 +1512,8 @@ Receives a POST from `supabase.functions.invoke()`, queries Supabase for target 
 | `body` | string | Notification body text |
 | `excludeUserId` | string? | Supabase UID of sender — excluded from recipients |
 
+---
+
 #### Function logic
 
 ```
@@ -1251,13 +1531,17 @@ Receives a POST from `supabase.functions.invoke()`, queries Supabase for target 
 
 Targets by **external ID** (= Supabase UID, set via `OneSignal.login(uid)`) rather than subscription ID because subscription IDs can rotate while external IDs are stable.
 
+---
+
 #### Success response
 
 ```json
 { "sent": 42, "result": { "id": "...", "recipients": 42 } }
 ```
 
-#### Required environment variables (set in Supabase Edge Function settings)
+---
+
+#### Required environment variables
 
 | Variable | Where to find it |
 |---|---|
