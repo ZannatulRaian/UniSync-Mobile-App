@@ -6,8 +6,6 @@ class ChatRoom {
   final bool isGroup;
   final List<String> memberIds;
   final List<String> memberNames;
-
-  // FIX: stores each member's photo URL (parallel to memberIds/memberNames).
   // Populated at runtime by ChatService — not stored in the DB, so it's
   // always up-to-date even after a member changes their profile picture.
   final List<String?> memberPhotoUrls;
