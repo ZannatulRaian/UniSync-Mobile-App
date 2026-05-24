@@ -1,4 +1,4 @@
-# UniSync — Technical Documentation
+# UniSync (Technical Documentation)
 
 UniSync is a Flutter mobile application for universities. It gives students and faculty a single platform for announcements, events, course resources, and messaging built offline-first so it works fully without internet and syncs automatically when connectivity returns.
 
