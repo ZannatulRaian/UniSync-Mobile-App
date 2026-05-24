@@ -16,7 +16,7 @@
 
 ---
 
-**UniSync** is a mobile application designed to simplify communication, collaboration, and resource sharing within a university environment. It enables **students and faculty** to connect through announcements, events, messaging, and shared resources in a single unified platform — with full offline support.
+**UniSync** is a mobile application designed to simplify communication, collaboration, and resource sharing within a university environment. It enables **students and faculty** to connect through announcements, events, messaging, and shared resources in a single unified platform with full offline support.
 
 ---
 
@@ -70,7 +70,7 @@
 **Offline-First**
 - All content cached locally with Isar; app works fully without internet
 - Write operations queued and replayed automatically when connectivity returns
-- Optimistic UI — actions appear instantly without waiting for the server
+- Optimistic UI, actions appear instantly without waiting for the server
 
 **Push Notifications**
 - Instant alerts for new announcements, events, chat messages, and resources
@@ -83,7 +83,7 @@
 | Layer | Technology |
 |---|---|
 | Framework | Flutter (Dart 3.2+) |
-| Backend | Supabase — Postgres, Auth, Storage, Realtime, Edge Functions |
+| Backend | Supabase- Postgres, Auth, Storage, Realtime, Edge Functions |
 | Local Database | Isar (offline cache & pending-action queue) |
 | State Management | Flutter Riverpod |
 | Push Notifications | OneSignal + Firebase Cloud Messaging |
