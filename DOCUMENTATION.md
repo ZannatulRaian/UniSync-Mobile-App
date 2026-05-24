@@ -1,6 +1,6 @@
 # UniSync — Technical Documentation
 
-UniSync is a Flutter mobile application for universities. It gives students and faculty a single platform for announcements, events, course resources, and messaging — built offline-first so it works fully without internet and syncs automatically when connectivity returns.
+UniSync is a Flutter mobile application for universities. It gives students and faculty a single platform for announcements, events, course resources, and messaging built offline-first so it works fully without internet and syncs automatically when connectivity returns.
 
 ---
 
@@ -33,13 +33,13 @@ UniSync replaces the scattered mix of email chains, WhatsApp groups, and notice 
 
 - **Faculty** post announcements and create events. Students are notified instantly via push.
 - **Students** RSVP to events, see live attendee counts, and bookmark announcements to read later.
-- **Everyone** uploads and downloads study materials — notes, past papers, slides — organized by department and semester.
+- **Everyone** uploads and downloads study materials- notes, past papers, slides- organized by department and semester.
 - **Direct and group chat** with real-time presence indicators shows who is online.
 - **Offline mode** is a first-class feature, not an afterthought. The app reads from a local Isar NoSQL database instantly, queues any writes that happen without internet, and replays them automatically when connectivity is restored.
 
 ### Who can do what
 
-Roles are assigned automatically by the database at sign-up based on the student ID format. There is no role selection screen — the ID number determines access.
+Roles are assigned automatically by the database at sign-up based on the student ID format. There is no role selection screen, the ID number determines access.
 
 | Role | Assigned when | Permissions |
 |---|---|---|
@@ -71,7 +71,7 @@ Sign out → LoginScreen  (onboarding is never shown again)
 
 Sign-up, sign-in, sign-out, and password reset via Supabase Auth. Only university email domains are accepted: `.edu`, `.edu.bd`, `.ac.bd`, `.ac.uk`, `.ac.in`.
 
-After every successful auth call the full user profile is serialized to `SharedPreferences` under the key `cached_user_profile`. If a subsequent `getUser()` call fails due to no network, the cached copy is returned instead — so profile data is always available offline.
+After every successful auth call the full user profile is serialized to `SharedPreferences` under the key `cached_user_profile`. If a subsequent `getUser()` call fails due to no network, the cached copy is returned instead, so profile data is always available offline.
 
 Sign-out clears this cache. The `onboarding_done` flag is persisted separately, so returning users always land on the login screen rather than onboarding.
 
@@ -79,7 +79,7 @@ Sign-out clears this cache. The `onboarding_done` flag is persisted separately, 
 
 Faculty post announcements of four types: **Academic**, **Financial**, **General**, **Club**. All authenticated users can read them, filter by type, and bookmark individual ones.
 
-Bookmarks are stored atomically in `users.bookmarked_announcements UUID[]` via `append_bookmark` and `remove_bookmark` RPC functions — these use `array_remove` before `array_append` to deduplicate, preventing race conditions. The local Isar cache preserves `isBookmarked` across server refreshes so the flag is never lost on a cache update.
+Bookmarks are stored atomically in `users.bookmarked_announcements UUID[]` via `append_bookmark` and `remove_bookmark` RPC functions, these use `array_remove` before `array_append` to deduplicate, preventing race conditions. The local Isar cache preserves `isBookmarked` across server refreshes so the flag is never lost on a cache update.
 
 Every stream emits from Isar first (instant, works offline), then re-emits from Supabase, then subscribes to a Realtime channel named `announcements_<type|all>` for live updates.
 
@@ -93,7 +93,7 @@ Students RSVP with a single toggle. The `toggle_rsvp` PostgreSQL RPC atomically:
 1. Adds or removes the event UUID from `users.rsvped_events[]`
 2. Increments or decrements `events.attendees` (floored at `0`)
 
-`isRSVPed` on each emitted `Event` object is resolved client-side by checking `user.rsvpedEvents` — no extra join needed. Live attendee counts update via the `events_changes` Realtime channel.
+`isRSVPed` on each emitted `Event` object is resolved client-side by checking `user.rsvpedEvents`, no extra join needed. Live attendee counts update via the `events_changes` Realtime channel.
 
 Offline: both `createEvent` and `rsvpEvent` update Isar immediately and queue `IsarPendingAction` records for server replay.
 
@@ -105,8 +105,8 @@ Any authenticated user can upload study materials. Files go to Supabase Storage 
 **Max file size:** 10 MB (enforced in `ResourceService` before the upload attempt)
 
 Each resource tracks:
-- **Downloads** — incremented atomically via `increment_downloads(resource_id)` RPC on every download
-- **Rating** — running average computed by `rate_resource(resource_id, rating)` RPC: `new_avg = ((old_rating × old_count) + new_rating) / (old_count + 1)`
+- **Downloads**-incremented atomically via `increment_downloads(resource_id)` RPC on every download
+- **Rating**-running average computed by `rate_resource(resource_id, rating)` RPC: `new_avg = ((old_rating × old_count) + new_rating) / (old_count + 1)`
 
 Offline upload: the raw file bytes are written to `<appDocuments>/unisync_pending_uploads/pending_<timestamp>.<ext>` — a path that survives app restarts. An optimistic `IsarResource` shows the upload immediately. `OfflineSyncService` reads the saved file and uploads it when back online.
 
@@ -116,7 +116,7 @@ Supports direct (1-to-1) and group rooms. Rooms use `select()` + Realtime subscr
 
 **Presence** is tracked via a Supabase Presence channel named `global_presence`. Each user tracks `{user_id, name}`. `onlineStream` is a `Stream<Set<String>>` that broadcasts the current set of online user IDs to widgets.
 
-**Unread count** per room: a `last_seen_<roomId>` timestamp is stored in `SharedPreferences` via `markRoomAsRead()`. Unread is computed as the number of messages after that timestamp not sent by the current user — from Supabase when online, from Isar when offline.
+**Unread count** per room: a `last_seen_<roomId>` timestamp is stored in `SharedPreferences` via `markRoomAsRead()`. Unread is computed as the number of messages after that timestamp not sent by the current user from Supabase when online, from Isar when offline.
 
 **Sending a message — online:**
 1. Validate sender is in `chat_rooms.member_ids`
@@ -137,8 +137,8 @@ For DMs, `createRoom()` checks for an existing room between the two users before
 
 Two-layer stack:
 
-- **Firebase Cloud Messaging (FCM)** — delivery infrastructure. Must be initialized before OneSignal.
-- **OneSignal** — targeting, token management, analytics. Users are identified by their Supabase UID via `OneSignal.login(uid)`, which sets the OneSignal external ID. This is more reliable than subscription ID, which can rotate.
+- **Firebase Cloud Messaging (FCM)**-delivery infrastructure. Must be initialized before OneSignal.
+- **OneSignal**-targeting, token management, analytics. Users are identified by their Supabase UID via `OneSignal.login(uid)`, which sets the OneSignal external ID. This is more reliable than subscription ID, which can rotate.
 
 Device tokens are stored in `user_push_tokens` (added by `NOTIFICATIONS_SETUP.sql`). If the user isn't authenticated at init time, the token is held in `SharedPreferences` under `pending_onesignal_id` and uploaded after the next login via `uploadPendingToken()`.
 
@@ -278,7 +278,7 @@ unisync/
 │       └── background.jpg
 │
 ├── sql/
-│   ├── SUPABASE_SETUP.sql                 # Full DB bootstrap — run once in SQL Editor
+│   ├── SUPABASE_SETUP.sql                 # Full DB bootstrap-run once in SQL Editor
 │   └── NOTIFICATIONS_SETUP.sql            # Adds user_push_tokens table
 │
 ├── .env.example                           # Copy to .env and fill in secrets
@@ -550,8 +550,8 @@ Throws `"Title cannot be empty"` or `"Content cannot be empty"` before any netwo
 
 | Parameter | Type | Description |
 |---|---|---|
-| `title` | `String` | Headline — cannot be empty |
-| `content` | `String` | Full body text — cannot be empty |
+| `title` | `String` | Headline-cannot be empty |
+| `content` | `String` | Full body text-cannot be empty |
 | `postedBy` | `String` | Poster's display name |
 | `postedById` | `String` | Poster's UUID (excluded from push notification) |
 | `type` | `String` | `'Academic'` · `'Financial'` · `'General'` · `'Club'` |
@@ -566,7 +566,7 @@ Future<void> bookmarkToggle(String userId, String announcementId, bool add)
 
 **Online:** `supabase.rpc('append_bookmark' | 'remove_bookmark', {user_id, ann_id})` → `updateAnnouncementBookmark(remoteId, add)` in Isar
 
-**Offline:** `updateAnnouncementBookmark(remoteId, add)` only — no server call, no pending action. State will reconcile on next full fetch.
+**Offline:** `updateAnnouncementBookmark(remoteId, add)` only no server call, no pending action. State will reconcile on next full fetch.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -635,7 +635,7 @@ Stream<List<Event>> getEvents()
 
 Sorted by `date ASC`. Realtime channel: `events_changes`. Same three-tier pattern as announcements.
 
-`isRSVPed` on each `Event` is resolved client-side from `user.rsvpedEvents` at the point the stream is consumed — the field is not in the DB row.
+`isRSVPed` on each `Event` is resolved client-side from `user.rsvpedEvents` at the point the stream is consumed, the field is not in the DB row.
 
 **Returns:** `Stream<List<Event>>`
 
@@ -683,7 +683,7 @@ Throws `"Title required"` before any network call.
 Future<void> rsvpEvent(String eventId, String userId, bool going)
 ```
 
-**Online:** `supabase.rpc('toggle_rsvp', {p_event_id, p_user_id, p_going})` — atomically updates `users.rsvped_events[]` and `events.attendees`
+**Online:** `supabase.rpc('toggle_rsvp', {p_event_id, p_user_id, p_going})`-atomically updates `users.rsvped_events[]` and `events.attendees`
 
 **Offline:** `updateEventRsvp(eventId, going)` on Isar (immediate UI toggle) → enqueue `IsarPendingAction(actionType: 'rsvp_event', payloadJson: {event_id, user_id, going})`
 
@@ -835,7 +835,7 @@ Future<void> deleteResource(String id, String storagePath)
 
 **Online:** `storage.from('resources').remove([storagePath])` → `DELETE FROM resources WHERE id = id`
 
-**Offline:** enqueue `IsarPendingAction(actionType: 'delete_resource', payload: {id, storage_path})` — skipped entirely if `id.startsWith('pending_')` since the file never reached the server.
+**Offline:** enqueue `IsarPendingAction(actionType: 'delete_resource', payload: {id, storage_path})`- skipped entirely if `id.startsWith('pending_')` since the file never reached the server.
 
 ---
 
@@ -897,9 +897,9 @@ Stream<List<ChatRoom>> getRoomsWithUnread(String userId)
 
 Wraps `getRooms()`. For each emitted list:
 
-1. Fetch `photo_url` for all member IDs via `SELECT id, photo_url FROM users WHERE id IN (...)` — one batched call, cached in a `Map<String, String?>`
+1. Fetch `photo_url` for all member IDs via `SELECT id, photo_url FROM users WHERE id IN (...)`-one batched call, cached in a `Map<String, String?>`
 2. For each room, read `last_seen_<roomId>` from `SharedPreferences`
-3. Count messages newer than that timestamp not sent by `userId` — from Supabase (online) or Isar (offline)
+3. Count messages newer than that timestamp not sent by `userId`- from Supabase (online) or Isar (offline)
 4. Attach `memberPhotoUrls` and `unreadCount` to each `ChatRoom`
 
 **Returns:** `Stream<List<ChatRoom>>`
@@ -1050,7 +1050,7 @@ chatService.leavePresence();
 Future<void> deleteMessage(String messageId)
 ```
 
-Soft-deletes from Isar immediately. Online: `DELETE FROM chat_messages WHERE id = messageId`. Offline: enqueue `IsarPendingAction(actionType: 'delete_message')` — only if `!messageId.startsWith('pending_')` (pending messages never existed on the server).
+Soft-deletes from Isar immediately. Online: `DELETE FROM chat_messages WHERE id = messageId`. Offline: enqueue `IsarPendingAction(actionType: 'delete_message')`- only if `!messageId.startsWith('pending_')` (pending messages never existed on the server).
 
 ---
 
@@ -1123,7 +1123,7 @@ supabase.rpc('update_photo_url', params: {
 
 This RPC exists specifically because direct `.update({'photo_url': url}).eq('id', userId)` from Dart throws `operator does not exist: uuid = text`.
 
-**Returns:** `Future<String>` — public Supabase Storage URL
+**Returns:** `Future<String>`- public Supabase Storage URL
 
 ---
 
@@ -1147,7 +1147,7 @@ Never returns `student_id` or any sensitive column.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `query` | `String` | Search string — minimum 2 characters |
+| `query` | `String` | Search string- minimum 2 characters |
 | `excludeId` | `String` | UUID of current user (excluded from results) |
 
 **Returns:** `Future<List<AppUser>>`
@@ -1184,7 +1184,7 @@ _savePlayerId()
 OneSignal.User.pushSubscription.addObserver(...)  // re-upload on token rotation
 ```
 
-`_savePlayerId()` also listens to `supabase.auth.onAuthStateChange` — whenever a session appears, it calls `_uploadPlayerId(currentId)` and `uploadPendingToken()`.
+`_savePlayerId()` also listens to `supabase.auth.onAuthStateChange`-whenever a session appears, it calls `_uploadPlayerId(currentId)` and `uploadPendingToken()`.
 
 ---
 
@@ -1210,7 +1210,7 @@ SharedPreferences.remove('pending_onesignal_id')
 
 ---
 
-#### `send()` — static
+#### `send()`-static
 
 ```dart
 static Future<void> send({
@@ -1221,7 +1221,7 @@ static Future<void> send({
 })
 ```
 
-Calls `supabase.functions.invoke('send-notification', body: {...})`. Errors are caught and printed — never rethrown. Called internally by `AnnouncementService`, `EventService`, `ChatService`, and `ResourceService` after every successful write.
+Calls `supabase.functions.invoke('send-notification', body: {...})`. Errors are caught and printed-never rethrown. Called internally by `AnnouncementService`, `EventService`, `ChatService`, and `ResourceService` after every successful write.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -1324,7 +1324,7 @@ clearSyncedActions()       // prune completed records from Isar
 return synced
 ```
 
-**Returns:** `Future<int>` — count of successfully synced actions
+**Returns:** `Future<int>`- count of successfully synced actions
 
 ---
 
@@ -1554,7 +1554,7 @@ Targets by **external ID** (= Supabase UID, set via `OneSignal.login(uid)`) rath
 
 ## 5. Database Schema
 
-Run `SUPABASE_SETUP.sql` once in the Supabase SQL Editor. Everything — tables, indexes, triggers, RPC functions, RLS policies, and Realtime publication — is created idempotently (`CREATE TABLE IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`).
+Run `SUPABASE_SETUP.sql` once in the Supabase SQL Editor. Everything tables, indexes, triggers, RPC functions, RLS policies, and Realtime publication is created idempotently (`CREATE TABLE IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`).
 
 ### Tables
 
